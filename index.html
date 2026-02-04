@@ -287,16 +287,13 @@ let pipDrawingInterval = null;
 function drawPiPTimer(){
   // draw background
   ctx.clearRect(0,0,pipCanvas.width,pipCanvas.height);
-  // background rectangle
   ctx.fillStyle = "#0b1226";
   ctx.fillRect(0,0,pipCanvas.width,pipCanvas.height);
   // compute state
   const {now,current,next} = computeCurrentAndNext();
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
-  // label line: class or next
   if(current){
-    // big time left
     const endDate = timeToDateToday(current.entry.end);
     const msLeft = endDate - now;
     const mmss = msToMinSec(msLeft);
@@ -324,31 +321,56 @@ function drawPiPTimer(){
   }
 }
 
+// small helper to wait
+function wait(ms){ return new Promise(res => setTimeout(res, ms)); }
+
 async function enablePiP(){
   if(!document.pictureInPictureEnabled){ alert("Picture-in-Picture not supported on this browser/device."); return; }
+
   // attach stream once
   if(!pipStreamAttached){
-    // start a captureStream from canvas
     const stream = pipCanvas.captureStream(25); // 25fps
     pipVideo.srcObject = stream;
-    try {
-      await pipVideo.play();
-      pipStreamAttached = true;
-    } catch(e){
-      // autoplay may require user gesture; but calling from button click is ok
-      console.warn("pipVideo play error:", e);
-    }
+    pipStreamAttached = true;
   }
+
   // start drawing regularly
   if(pipDrawingInterval) clearInterval(pipDrawingInterval);
   drawPiPTimer();
   pipDrawingInterval = setInterval(drawPiPTimer, 500);
+
   try {
+    // Ensure video started playing and metadata available before PiP
+    try {
+      // play() must be called in a user gesture (button click) — which is the case
+      await pipVideo.play();
+    } catch(playErr){
+      // If play fails, try a short delay and try again once
+      await wait(100);
+      try { await pipVideo.play(); } catch(e){ console.warn("pipVideo.play still failed:", e); }
+    }
+
+    // tiny delay to ensure frames are available
+    await wait(120);
+
     await pipVideo.requestPictureInPicture();
     floatingBtn.innerText = "Exit Floating";
-  } catch(e){
-    console.error("PiP request error:", e); alert("Could not open floating window: " + (e && e.message ? e.message : e));
-    clearInterval(pipDrawingInterval); pipDrawingInterval = null;
+  } catch(e) {
+    console.error("PiP request error:", e);
+    // Try one retry with a slightly longer wait if metadata error occurred
+    if (e && /Metadata|not loaded|ready/.test(String(e.message))) {
+      try {
+        await wait(250);
+        await pipVideo.requestPictureInPicture();
+        floatingBtn.innerText = "Exit Floating";
+        return;
+      } catch(retryErr){
+        console.error("PiP retry failed:", retryErr);
+      }
+    }
+    alert("Could not open floating window: " + (e && e.message ? e.message : e));
+    clearInterval(pipDrawingInterval);
+    pipDrawingInterval = null;
   }
 }
 
@@ -376,9 +398,7 @@ setInterval(()=>{ if(Notification && Notification.permission === "granted" && no
 
 // schedule notifications when page gains focus
 window.addEventListener("focus", ()=> scheduleNotificationsForNextEvents());
-
-/* ======= optional: prefill (commented out) ======= */
-// (function maybeLoadExample(){ const empty = schedule.days.every(d=>d.length===0); if(empty){ /* schedule.days[0] = [{name:"Math",start:"08:30",end:"09:20"},{name:"English",start:"09:30",end:"10:20"}]; saveSchedule(schedule); renderScheduleList(); */ } })();
 </script>
 </body>
 </html>
+
