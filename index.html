@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Period Timer — Floating PiP + Editor</title>
+<style>
+  :root{--bg:#f5f7fb;--card:#fff;--accent:#0b1226;--muted:#6b7280}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial; margin:0; background:var(--bg); color:#111; padding:14px;}
+  .container{max-width:980px;margin:0 auto;}
+  h1{font-size:18px;margin:0 0 12px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  button{padding:8px 10px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
+  .editor{background:var(--card);padding:12px;border-radius:10px;box-shadow:0 4px 14px rgba(12,15,30,0.06);margin-bottom:12px}
+  label{display:block;font-size:13px;margin-top:8px}
+  input[type="text"], input[type="time"]{padding:8px;border-radius:8px;border:1px solid #d1d5db;width:100%;box-sizing:border-box}
+  .row{display:flex;gap:8px}
+  .small{width:180px}
+  .days{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .day{padding:6px 8px;border-radius:6px;border:1px solid #eee;background:#fafafa;font-size:13px}
+  .schedule-list{margin-top:12px}
+  .entry{background:#fff;padding:8px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border:1px solid #f0f0f0}
+  .tag{background:#eef2ff;padding:4px 6px;border-radius:6px;font-size:12px;margin-left:6px}
+  .muted{color:var(--muted);font-size:12px}
+  .popup{position:fixed;bottom:12px;right:12px;background:var(--accent);color:white;padding:12px 14px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.35);width:260px;font-size:14px;opacity:0.95;cursor:pointer}
+  .popup h3{margin:0 0 6px 0;font-size:15px}
+  .popup .line{font-size:13px;margin-top:6px}
+  .footer{margin-top:10px;font-size:13px;color:#333}
+  @media(max-width:640px){ .popup{width:92%;left:4%;right:4%} .row{flex-direction:column}.small{width:100%} }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Period Timer — Editor + Floating PiP</h1>
+
+  <div class="controls">
+    <button id="openEditorBtn">Open / Edit Schedule</button>
+    <button id="floatingBtn">Floating Mode</button>
+    <button id="exportBtn">Export JSON</button>
+    <button id="importBtn">Import JSON</button>
+    <input id="importFile" type="file" accept="application/json" style="display:none" />
+    <button id="clearBtn">Clear Schedule</button>
+    <button id="notifyBtn">Enable Notifications</button>
+  </div>
+
+  <div class="editor hidden" id="editor">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Schedule Editor</strong>
+      <div><button id="closeEditorBtn">Close</button></div>
+    </div>
+
+    <label>Class name</label>
+    <input id="className" type="text" placeholder="e.g. Math" />
+    <div class="row" style="margin-top:8px">
+      <div class="small">
+        <label>Start time</label>
+        <input id="startTime" type="time" />
+      </div>
+      <div class="small">
+        <label>End time</label>
+        <input id="endTime" type="time" />
+      </div>
+    </div>
+
+    <label style="margin-top:8px">Days</label>
+    <div class="days" id="days">
+      <label class="day"><input type="checkbox" value="0" /> Mon</label>
+      <label class="day"><input type="checkbox" value="1" /> Tue</label>
+      <label class="day"><input type="checkbox" value="2" /> Wed</label>
+      <label class="day"><input type="checkbox" value="3" /> Thu</label>
+      <label class="day"><input type="checkbox" value="4" /> Fri</label>
+      <label class="day"><input type="checkbox" value="5" /> Sat</label>
+      <label class="day"><input type="checkbox" value="6" /> Sun</label>
+    </div>
+
+    <div style="margin-top:10px">
+      <button id="addBtn">Add / Save Entry</button>
+    </div>
+
+    <div class="schedule-list" id="scheduleList"></div>
+  </div>
+
+  <div class="footer">
+    Tip: Pin the tab and keep the browser open. Notifications work while the page is loaded.
+  </div>
+</div>
+
+<!-- Hidden video for PiP -->
+<video id="pipVideo" muted playsinline style="display:none"></video>
+<!-- Hidden canvas used for drawing the compact PiP timer -->
+<canvas id="pipCanvas" width="360" height="160" style="display:none"></canvas>
+
+<!-- in-page popup (click to open editor) -->
+<div class="popup" id="popup" title="Click to open editor">
+  <h3 id="popupTitle">No active period</h3>
+  <div class="line" id="popupTime">Next: —</div>
+  <div class="muted" id="popupSub"></div>
+</div>
+
+<script>
+/* ======= Persistence and schedule model ======= */
+const STORAGE_KEY = "period_timer_schedule_v1";
+function defaultSchedule(){ return { days: [[],[],[],[],[],[],[]] }; }
+function loadSchedule(){ try { const r = localStorage.getItem(STORAGE_KEY); if(!r) return defaultSchedule(); const p = JSON.parse(r); if(!p.days||!Array.isArray(p.days)||p.days.length!==7) return defaultSchedule(); return p; } catch(e){console.error(e); return defaultSchedule();} }
+function saveSchedule(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+let schedule = loadSchedule();
+const dayNames=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+/* ======= Helpers ======= */
+function timeToDateToday(hm){ const [h,m]=hm.split(":").map(n=>parseInt(n,10)); const d=new Date(); d.setHours(h,m,0,0); return d; }
+function msToMinSec(ms){ if(ms<=0) return "0:00"; const s=Math.floor(ms/1000); const m=Math.floor(s/60); const sec=s%60; return `${m}:${sec.toString().padStart(2,"0")}`; }
+function nowDayIndex(){ return (new Date().getDay()+6)%7; }
+
+/* ======= DOM refs ======= */
+const editor = document.getElementById("editor");
+const openEditorBtn = document.getElementById("openEditorBtn");
+const closeEditorBtn = document.getElementById("closeEditorBtn");
+const addBtn = document.getElementById("addBtn");
+const classNameInput = document.getElementById("className");
+const startTimeInput = document.getElementById("startTime");
+const endTimeInput = document.getElementById("endTime");
+const daysEl = document.getElementById("days");
+const scheduleList = document.getElementById("scheduleList");
+const popup = document.getElementById("popup");
+const popupTitle = document.getElementById("popupTitle");
+const popupTime = document.getElementById("popupTime");
+const popupSub = document.getElementById("popupSub");
+const exportBtn = document.getElementById("exportBtn");
+const importBtn = document.getElementById("importBtn");
+const importFile = document.getElementById("importFile");
+const clearBtn = document.getElementById("clearBtn");
+const notifyBtn = document.getElementById("notifyBtn");
+const floatingBtn = document.getElementById("floatingBtn");
+
+let editingEntry = null; // {day,index} or null
+
+openEditorBtn.addEventListener("click", ()=>{ editor.classList.remove("hidden"); renderScheduleList(); });
+closeEditorBtn.addEventListener("click", ()=>{ editor.classList.add("hidden"); editingEntry=null; clearEditor(); });
+popup.addEventListener("click", ()=>{ editor.classList.remove("hidden"); renderScheduleList(); });
+
+function clearEditor(){
+  classNameInput.value=""; startTimeInput.value=""; endTimeInput.value="";
+  daysEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
+  editingEntry=null; addBtn.innerText="Add / Save Entry";
+}
+
+function addOrSave(){
+  const name=classNameInput.value.trim(); const start=startTimeInput.value; const end=endTimeInput.value;
+  if(!name||!start||!end){ alert("Enter name, start, end"); return; }
+  const selected = Array.from(daysEl.querySelectorAll("input[type=checkbox]")).filter(cb=>cb.checked).map(cb=>parseInt(cb.value,10));
+  if(selected.length===0){ alert("Select at least one day"); return; }
+  const sD=timeToDateToday(start), eD=timeToDateToday(end);
+  if(eD<=sD){ alert("End must be after start"); return; }
+  if(editingEntry){
+    const {day,index} = editingEntry;
+    schedule.days[day][index] = {name,start,end};
+  } else {
+    for(const d of selected) schedule.days[d].push({name,start,end});
+  }
+  // sort days
+  for(let d=0;d<7;d++){
+    schedule.days[d].sort((a,b)=>{ const [ah,am]=a.start.split(":").map(Number); const [bh,bm]=b.start.split(":").map(Number); return ah*60+am - (bh*60+bm); });
+  }
+  saveSchedule(schedule); clearEditor(); renderScheduleList(); alert("Saved");
+}
+addBtn.addEventListener("click", addOrSave);
+
+function renderScheduleList(){
+  scheduleList.innerHTML="";
+  for(let d=0;d<7;d++){
+    const list=schedule.days[d];
+    const block=document.createElement("div"); block.style.marginBottom="8px";
+    const title=document.createElement("div"); title.style.fontWeight="600"; title.style.marginTop="6px"; title.innerText=dayNames[d];
+    block.appendChild(title);
+    if(list.length===0){
+      const p=document.createElement("div"); p.className="muted"; p.innerText="No entries"; block.appendChild(p);
+    } else {
+      list.forEach((entry,idx)=>{
+        const e=document.createElement("div"); e.className="entry";
+        const left=document.createElement("div"); left.innerHTML=`<strong>${entry.name}</strong> <span class="tag">${entry.start}–${entry.end}</span>`;
+        const right=document.createElement("div");
+        const editBtn=document.createElement("button"); editBtn.innerText="Edit"; editBtn.addEventListener("click", ()=> openEdit(d,idx));
+        const delBtn=document.createElement("button"); delBtn.innerText="Delete"; delBtn.addEventListener("click", ()=> { if(!confirm("Delete?")) return; schedule.days[d].splice(idx,1); saveSchedule(schedule); renderScheduleList(); });
+        right.appendChild(editBtn); right.appendChild(delBtn);
+        e.appendChild(left); e.appendChild(right); block.appendChild(e);
+      });
+    }
+    scheduleList.appendChild(block);
+  }
+}
+
+function openEdit(day,index){
+  const entry = schedule.days[day][index];
+  classNameInput.value = entry.name; startTimeInput.value = entry.start; endTimeInput.value = entry.end;
+  daysEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false); daysEl.querySelectorAll("input[type=checkbox]")[day].checked=true;
+  editingEntry = {day,index}; addBtn.innerText="Save Changes"; editor.classList.remove("hidden");
+}
+
+/* ======= Export / Import / Clear ======= */
+exportBtn.addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(schedule,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="period-schedule.json"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+});
+importBtn.addEventListener("click", ()=> importFile.click());
+importFile.addEventListener("change", (ev)=>{
+  const f = ev.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ try{ const p=JSON.parse(r.result); if(!p.days) throw new Error("Invalid format"); schedule = p; saveSchedule(schedule); renderScheduleList(); alert("Imported"); }catch(e){ alert("Import failed: "+e.message); } }; r.readAsText(f);
+});
+clearBtn.addEventListener("click", ()=> { if(!confirm("Clear entire schedule?")) return; schedule = defaultSchedule(); saveSchedule(schedule); renderScheduleList(); alert("Cleared"); });
+
+/* ======= Timer / popup logic ======= */
+function computeCurrentAndNext(){
+  const now = new Date();
+  const dayIdx = (now.getDay()+6)%7;
+  const todays = schedule.days[dayIdx] || [];
+  const curMin = now.getHours()*60 + now.getMinutes() + now.getSeconds()/60.0;
+  let current=null, next=null;
+  for(let i=0;i<todays.length;i++){
+    const e=todays[i]; const [sh,sm]=e.start.split(":").map(Number); const [eh,em]=e.end.split(":").map(Number);
+    const startMin = sh*60+sm, endMin = eh*60+em;
+    if(curMin>=startMin && curMin<endMin){ current = {entry:e,startMin,endMin,index:i}; if(i+1<todays.length) next = {entry:todays[i+1],index:i+1}; break; }
+    if(curMin < startMin){ next={entry:e,index:i}; break; }
+  }
+  return { now, current, next };
+}
+
+function updatePopup(){
+  const {now,current,next} = computeCurrentAndNext();
+  if(current){
+    const endDate = timeToDateToday(current.entry.end);
+    const msLeft = endDate - now;
+    popupTitle.innerText = `${current.entry.name} — ${msToMinSec(msLeft)}`;
+    popupTime.innerText = `Ends at ${current.entry.end} (${msToMinSec(msLeft)})`;
+    popupSub.innerText = next ? `Next: ${next.entry.name} at ${next.entry.start}` : `No more periods today`;
+  } else if(next){
+    const startDate = timeToDateToday(next.entry.start);
+    const msUntil = startDate - now;
+    popupTitle.innerText = `No active period`;
+    popupTime.innerText = `Next: ${next.entry.name} in ${msToMinSec(msUntil)}`;
+    popupSub.innerText = `Starts at ${next.entry.start}`;
+  } else {
+    popupTitle.innerText = "No scheduled periods today";
+    popupTime.innerText = "Enjoy your free time!";
+    popupSub.innerText = "";
+  }
+}
+
+/* ======= Notifications (works while page loaded) ======= */
+let notifEnabled = false;
+let scheduledNotifs = [];
+function clearScheduledNotifs(){ scheduledNotifs.forEach(id=>clearTimeout(id)); scheduledNotifs = []; }
+function scheduleNotificationsForNextEvents(){
+  clearScheduledNotifs();
+  if(!notifEnabled || Notification.permission !== "granted") return;
+  const now = new Date(); const dayIdx=(now.getDay()+6)%7; const todays = schedule.days[dayIdx] || [];
+  for(const entry of todays){
+    const startDate = timeToDateToday(entry.start);
+    const endDate = timeToDateToday(entry.end);
+    if(startDate > now){
+      const ms = startDate - now;
+      scheduledNotifs.push(setTimeout(()=> new Notification("Class starting: " + entry.name, {body:`Starts at ${entry.start}`}), ms));
+      const ms5 = ms - 5*60*1000; if(ms5>0) scheduledNotifs.push(setTimeout(()=> new Notification("Upcoming in 5 min: "+entry.name,{body:entry.start}), ms5));
+    }
+    if(endDate > now){
+      const msEnd = endDate - now; const ms1Before = msEnd - 60*1000; if(ms1Before>0) scheduledNotifs.push(setTimeout(()=> new Notification("1 minute left in: " + entry.name, {body: entry.end}), ms1Before));
+    }
+  }
+}
+function requestNotificationPermission(){
+  if(!("Notification" in window)){ alert("Notifications unsupported in this browser"); return; }
+  Notification.requestPermission().then(p=>{
+    if(p==="granted"){ notifEnabled=true; notifyBtn.innerText="Notifications: ON"; scheduleNotificationsForNextEvents(); }
+    else { notifEnabled=false; notifyBtn.innerText="Enable Notifications"; clearScheduledNotifs(); }
+  });
+}
+notifyBtn.addEventListener("click", ()=>{ if(!notifEnabled) requestNotificationPermission(); else { notifEnabled=false; notifyBtn.innerText="Enable Notifications"; clearScheduledNotifs(); } });
+
+/* ======= PiP: draw compact timer to canvas and capture stream ======= */
+const pipCanvas = document.getElementById("pipCanvas");
+const pipVideo = document.getElementById("pipVideo");
+const ctx = pipCanvas.getContext("2d");
+let pipStreamAttached = false;
+let pipDrawingInterval = null;
+
+function drawPiPTimer(){
+  // draw background
+  ctx.clearRect(0,0,pipCanvas.width,pipCanvas.height);
+  // background rectangle
+  ctx.fillStyle = "#0b1226";
+  ctx.fillRect(0,0,pipCanvas.width,pipCanvas.height);
+  // compute state
+  const {now,current,next} = computeCurrentAndNext();
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  // label line: class or next
+  if(current){
+    // big time left
+    const endDate = timeToDateToday(current.entry.end);
+    const msLeft = endDate - now;
+    const mmss = msToMinSec(msLeft);
+    ctx.font = "bold 36px system-ui, sans-serif";
+    ctx.fillText(mmss, pipCanvas.width/2, 70);
+    ctx.font = "16px system-ui, sans-serif";
+    ctx.fillText(current.entry.name, pipCanvas.width/2, 110);
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(`Ends ${current.entry.end}`, pipCanvas.width/2, 135);
+  } else if(next){
+    const startDate = timeToDateToday(next.entry.start);
+    const msUntil = startDate - now;
+    const mmss = msToMinSec(msUntil);
+    ctx.font = "bold 28px system-ui, sans-serif";
+    ctx.fillText(mmss, pipCanvas.width/2, 64);
+    ctx.font = "14px system-ui, sans-serif";
+    ctx.fillText("Next: " + next.entry.name, pipCanvas.width/2, 98);
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(`Starts ${next.entry.start}`, pipCanvas.width/2, 122);
+  } else {
+    ctx.font = "bold 24px system-ui, sans-serif";
+    ctx.fillText("No periods today", pipCanvas.width/2, 80);
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText("Enjoy your free time!", pipCanvas.width/2, 104);
+  }
+}
+
+async function enablePiP(){
+  if(!document.pictureInPictureEnabled){ alert("Picture-in-Picture not supported on this browser/device."); return; }
+  // attach stream once
+  if(!pipStreamAttached){
+    // start a captureStream from canvas
+    const stream = pipCanvas.captureStream(25); // 25fps
+    pipVideo.srcObject = stream;
+    try {
+      await pipVideo.play();
+      pipStreamAttached = true;
+    } catch(e){
+      // autoplay may require user gesture; but calling from button click is ok
+      console.warn("pipVideo play error:", e);
+    }
+  }
+  // start drawing regularly
+  if(pipDrawingInterval) clearInterval(pipDrawingInterval);
+  drawPiPTimer();
+  pipDrawingInterval = setInterval(drawPiPTimer, 500);
+  try {
+    await pipVideo.requestPictureInPicture();
+    floatingBtn.innerText = "Exit Floating";
+  } catch(e){
+    console.error("PiP request error:", e); alert("Could not open floating window: " + (e && e.message ? e.message : e));
+    clearInterval(pipDrawingInterval); pipDrawingInterval = null;
+  }
+}
+
+async function disablePiP(){
+  try {
+    if(document.pictureInPictureElement) await document.exitPictureInPicture();
+  } catch(e){}
+  if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval = null; }
+  floatingBtn.innerText = "Floating Mode";
+}
+
+floatingBtn.addEventListener("click", async ()=>{
+  if(document.pictureInPictureElement) { await disablePiP(); return; }
+  await enablePiP();
+});
+
+// when PiP closed by user, stop drawing
+document.addEventListener('leavepictureinpicture', (e)=>{ if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval=null; } floatingBtn.innerText="Floating Mode"; });
+
+/* ======= Init / intervals ======= */
+renderScheduleList();
+updatePopup();
+setInterval(updatePopup, 1000); // update in-page popup every second
+setInterval(()=>{ if(Notification && Notification.permission === "granted" && notifEnabled) scheduleNotificationsForNextEvents(); }, 60*1000);
+
+// schedule notifications when page gains focus
+window.addEventListener("focus", ()=> scheduleNotificationsForNextEvents());
+
+/* ======= optional: prefill (commented out) ======= */
+// (function maybeLoadExample(){ const empty = schedule.days.every(d=>d.length===0); if(empty){ /* schedule.days[0] = [{name:"Math",start:"08:30",end:"09:20"},{name:"English",start:"09:30",end:"10:20"}]; saveSchedule(schedule); renderScheduleList(); */ } })();
+</script>
+</body>
+</html>
