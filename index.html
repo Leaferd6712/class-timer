@@ -32,7 +32,6 @@
   .schedule-day{margin-bottom:8px}
   .schedule-entry{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:6px;background:#fafafa;margin-top:6px;border:1px solid #efefef}
   .tag{background:#eef2ff;padding:4px 6px;border-radius:6px;font-size:12px;margin-left:6px}
-  /* PiP popup styling (this is the in-page popup; PiP content is drawn on canvas) */
   .popup{position:fixed;bottom:12px;right:12px;background:var(--accent);color:white;padding:12px 14px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.35);width:300px;font-size:14px;opacity:0.98;cursor:pointer;display:flex;flex-direction:column;gap:6px}
   .popup h3{margin:0 0 0;font-size:15px;line-height:1}
   .popup .line{font-size:13px;margin-top:2px}
@@ -46,8 +45,8 @@
     .small{width:100%}
   }
   @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
-  /* Make the canvas area higher-contrast so PiP is readable */
-  canvas#pipCanvas{border-radius:10px; background:transparent}
+  /* make PiP canvas readable */
+  canvas#pipCanvas{border-radius:10px}
 </style>
 </head>
 <body>
@@ -73,7 +72,7 @@
     </p>
   </section>
 
-  <!-- Controls -->
+  <!-- Controls: Active week toggle + View selector + primary buttons -->
   <section class="controls" role="toolbar" aria-label="Schedule controls">
     <div style="display:flex;gap:8px;align-items:center">
       <div class="muted">Active week:</div>
@@ -100,7 +99,7 @@
     <button id="notifyBtn" title="Enable or disable browser notifications">Enable Notifications</button>
   </section>
 
-  <!-- Visible schedule summary -->
+  <!-- Visible schedule summary (shows selected view week) -->
   <section class="schedule-summary" aria-label="Schedule summary">
     <strong>Schedule summary — <span id="viewWeekLabel">Week A</span></strong>
     <div id="scheduleSummary" style="margin-top:8px"></div>
@@ -158,10 +157,10 @@
 
 <!-- Hidden PiP elements -->
 <video id="pipVideo" muted playsinline style="display:none" aria-hidden="true"></video>
-<!-- canvas used for PiP drawing. Make it narrow and tall for a clean timer look -->
+<!-- canvas used for PiP drawing (narrow & short for clean timer) -->
 <canvas id="pipCanvas" width="360" height="140" style="display:none" aria-hidden="true"></canvas>
 
-<!-- in-page popup -->
+<!-- popup -->
 <div class="popup" id="popup" role="button" aria-pressed="false" tabindex="0" title="Click to open editor">
   <div style="display:flex;justify-content:space-between;align-items:center">
     <h3 id="popupTitle">No active period</h3>
@@ -184,9 +183,11 @@
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 
 <script>
-/* ========== storage + schema ========== */
+/* ============================
+   Schema & storage
+   ============================ */
 const STORAGE_KEYS = ["period_timer_schedule_v2", "period_timer_schedule_v1", "period_timer_schedule"];
-const ACTIVE_WEEK_KEY = "period_timer_active_week";
+const ACTIVE_WEEK_KEY = "period_timer_active_week"; // "A" or "B"
 
 function defaultSchedule(){ return { weeks: { A: [[],[],[],[],[],[],[]], B: [[],[],[],[],[],[],[]] } }; }
 
@@ -221,6 +222,7 @@ function loadSchedule(){
         const parsed = JSON.parse(raw);
         if(isNewTwoWeek(parsed) && validateSchedule(parsed)) return parsed;
         if(isOldSingleWeek(parsed) && validateSchedule(parsed)){
+          // migrate: copy single-week days into both A & B
           const clone = JSON.parse(JSON.stringify(parsed.days));
           return { weeks: { A: clone, B: clone.map(day=>day.map(e=>({...e}))) } };
         }
@@ -234,7 +236,9 @@ function loadSchedule(){
 }
 function saveSchedule(s){ try{ localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(s)); } catch(e){ showToast("Unable to save schedule"); } }
 
-/* ========== helpers ========== */
+/* ============================
+   Helpers & model
+   ============================ */
 let schedule = loadSchedule();
 const dayNames = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
@@ -246,7 +250,9 @@ function msToMinSec(ms){ if(ms<=0) return "0:00"; const s=Math.floor(ms/1000); c
 
 function showToast(text, ttl=2500){ const wrap = document.getElementById("toastWrap"); const node = document.createElement("div"); node.className="toast"; node.textContent=text; wrap.appendChild(node); setTimeout(()=>node.remove(), ttl); }
 
-/* ========== DOM refs ========== */
+/* ============================
+   DOM refs
+   ============================ */
 const viewWeekSelect = document.getElementById("viewWeekSelect");
 const openEditorBtn = document.getElementById("openEditorBtn");
 const editor = document.getElementById("editor");
@@ -272,15 +278,18 @@ const entryTemplate = document.getElementById("entryTemplate");
 const activeA = document.getElementById("setActiveA");
 const activeB = document.getElementById("setActiveB");
 
-let editingEntry = null;
+let editingEntry = null; // {week:"A"|"B", day, index}
 let notifEnabled = false;
 let scheduledNotifs = [];
 
-/* ========== editor & schedule UI (unchanged) ========== */
-function escapeHtml(str){ return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+/* ============================
+   Editor & schedule UI
+   ============================ */
+function escapeHtml(str){ return String(str).replace(/[&<>"']/g, (s)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+
 function renderScheduleList(){
   const viewWeek = getViewWeek();
-  scheduleList.innerHTML="";
+  scheduleList.innerHTML = "";
   const weekArr = schedule.weeks[viewWeek];
   for(let d=0; d<7; d++){
     const list = weekArr[d];
@@ -290,7 +299,7 @@ function renderScheduleList(){
     if(list.length===0){
       const p = document.createElement("div"); p.className="muted"; p.innerText="No entries"; block.appendChild(p);
     } else {
-      list.forEach((entry, idx)=>{
+      list.forEach((entry, idx) => {
         const frag = entryTemplate.content.cloneNode(true);
         frag.querySelector(".entry-name").textContent = entry.name;
         frag.querySelector(".entry-time").textContent = `${entry.start}–${entry.end}`;
@@ -302,10 +311,11 @@ function renderScheduleList(){
     scheduleList.appendChild(block);
   }
 }
+
 function renderScheduleSummary(){
   const viewWeek = getViewWeek();
-  document.getElementById("viewWeekLabel").innerText = `Week ${viewWeek}`;
-  scheduleSummary.innerHTML="";
+  viewWeekLabel.innerText = `Week ${viewWeek}`;
+  scheduleSummary.innerHTML = "";
   const weekArr = schedule.weeks[viewWeek];
   for(let d=0; d<7; d++){
     const list = weekArr[d];
@@ -331,17 +341,30 @@ function renderScheduleSummary(){
     scheduleSummary.appendChild(dayBlock);
   }
 }
+
 function openEdit(week, day, index){
   const entry = schedule.weeks[week][day][index];
-  classNameInput.value = entry.name; startTimeInput.value = entry.start; endTimeInput.value = entry.end;
+  classNameInput.value = entry.name;
+  startTimeInput.value = entry.start;
+  endTimeInput.value = entry.end;
   daysEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
   daysEl.querySelectorAll("input[type=checkbox]")[day].checked = true;
   const weekChecks = weeksEl.querySelectorAll("input[type=checkbox]");
-  weekChecks.forEach(cb=>{ const w = cb.value; const exists = schedule.weeks[w][day].some(e=>e.name===entry.name && e.start===entry.start && e.end===entry.end); cb.checked = !!exists; });
-  editingEntry = { week, day, index }; addBtn.innerText="Save Changes"; editor.classList.remove("hidden"); classNameInput.focus();
+  weekChecks.forEach(cb=>{
+    const w = cb.value;
+    const exists = schedule.weeks[w][day].some(e => e.name===entry.name && e.start===entry.start && e.end===entry.end);
+    cb.checked = !!exists;
+  });
+  editingEntry = { week, day, index };
+  addBtn.innerText = "Save Changes";
+  editor.classList.remove("hidden");
+  classNameInput.focus();
 }
+
 function addOrSave(){
-  const name = classNameInput.value.trim(); const start = startTimeInput.value; const end = endTimeInput.value;
+  const name = classNameInput.value.trim();
+  const start = startTimeInput.value;
+  const end = endTimeInput.value;
   if(!name || !start || !end){ showToast("Enter name, start, end"); return; }
   const selectedDays = Array.from(daysEl.querySelectorAll("input[type=checkbox]")).filter(cb=>cb.checked).map(cb=>parseInt(cb.value,10));
   if(selectedDays.length===0){ showToast("Select at least one day"); return; }
@@ -351,7 +374,7 @@ function addOrSave(){
   if(eD <= sD){ showToast("End must be after start"); return; }
 
   if(editingEntry){
-    const {week,day,index} = editingEntry;
+    const {week, day, index} = editingEntry;
     schedule.weeks[week][day][index] = { name, start, end };
     for(const w of selectedWeeks){
       if(w === week) continue;
@@ -371,32 +394,68 @@ function addOrSave(){
     showToast("Added entry.");
   }
 
+  // sort each day's entries
   for(const w of ["A","B"]){
     for(let d=0; d<7; d++){
       schedule.weeks[w][d].sort((a,b)=>{ const [ah,am]=a.start.split(":").map(Number); const [bh,bm]=b.start.split(":").map(Number); return ah*60+am - (bh*60+bm); });
     }
   }
 
-  saveSchedule(schedule); clearEditor(); renderScheduleList(); renderScheduleSummary(); scheduleNotificationsForNextEvents();
+  saveSchedule(schedule);
+  clearEditor();
+  renderScheduleList();
+  renderScheduleSummary();
+  scheduleNotificationsForNextEvents();
 }
 addBtn.addEventListener("click", addOrSave);
 
-/* export/import */
+function clearEditor(){
+  classNameInput.value=""; startTimeInput.value=""; endTimeInput.value="";
+  daysEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
+  weeksEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=true);
+  editingEntry=null; addBtn.innerText="Add / Save Entry";
+}
+
+/* ========== Export / Import / Clear ========== */
 exportBtn.addEventListener("click", ()=>{
-  try{ const blob = new Blob([JSON.stringify(schedule, null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="period-schedule-2week.json"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); showToast("Exported JSON"); } catch(e){ showToast("Export failed"); }
+  try{
+    const blob = new Blob([JSON.stringify(schedule, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "period-schedule-2week.json"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    showToast("Exported JSON");
+  } catch(e){ showToast("Export failed"); }
 });
 importBtn.addEventListener("click", ()=> importFile.click());
-importFile.addEventListener("change", (ev)=>{ const f = ev.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = ()=>{ try{ const p = JSON.parse(r.result); if(isNewTwoWeek(p) && validateSchedule(p)){ schedule = p; } else if(isOldSingleWeek(p) && validateSchedule(p)){ const clone = JSON.parse(JSON.stringify(p.days)); schedule = { weeks: { A: clone, B: clone.map(day=>day.map(e=>({ ...e }))) } }; } else throw new Error("Invalid format"); saveSchedule(schedule); renderScheduleList(); renderScheduleSummary(); showToast("Imported schedule."); scheduleNotificationsForNextEvents(); }catch(e){ showToast("Import failed: " + (e.message||e)); } }; r.readAsText(f); });
-
-/* clear */
+importFile.addEventListener("change", (ev)=>{
+  const f = ev.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const p = JSON.parse(r.result);
+      if(isNewTwoWeek(p) && validateSchedule(p)){
+        schedule = p;
+      } else if(isOldSingleWeek(p) && validateSchedule(p)){
+        const clone = JSON.parse(JSON.stringify(p.days));
+        schedule = { weeks: { A: clone, B: clone.map(day=>day.map(e=>({ ...e }))) } };
+      } else throw new Error("Invalid format");
+      saveSchedule(schedule);
+      renderScheduleList(); renderScheduleSummary();
+      showToast("Imported schedule.");
+      scheduleNotificationsForNextEvents();
+    }catch(e){ showToast("Import failed: " + (e.message||e)); }
+  };
+  r.readAsText(f);
+});
 clearBtn.addEventListener("click", ()=>{ if(!confirm("Clear entire schedule?")) return; schedule = defaultSchedule(); saveSchedule(schedule); renderScheduleList(); renderScheduleSummary(); showToast("Cleared"); });
 
-/* active week wiring */
+/* Active week wiring */
 activeA.addEventListener("click", ()=> setActiveWeek("A"));
 activeB.addEventListener("click", ()=> setActiveWeek("B"));
 viewWeekSelect.addEventListener("change", ()=> { renderScheduleList(); renderScheduleSummary(); });
 
-/* compute current & next (uses active week) */
+/* ============================
+   Compute current/next and popup
+   ============================ */
 function getViewWeek(){ return viewWeekSelect.value || getActiveWeek(); }
 
 function computeCurrentAndNext(){
@@ -417,7 +476,6 @@ function computeCurrentAndNext(){
   return { now, current, next };
 }
 
-/* update the in-page popup (unchanged) */
 function updatePopup(){
   const {now,current,next} = computeCurrentAndNext();
   if(current){
@@ -444,7 +502,9 @@ function updatePopup(){
 popup.addEventListener("click", ()=> openEditor());
 popup.addEventListener("keydown", (e)=> { if(e.key==="Enter"||e.key===" ") openEditor(); });
 
-/* notifications (unchanged) */
+/* ============================
+   Notifications (unchanged)
+   ============================ */
 function clearScheduledNotifs(){ scheduledNotifs.forEach(id=>clearTimeout(id)); scheduledNotifs = []; }
 function scheduleNotificationsForNextEvents(){
   clearScheduledNotifs();
@@ -467,126 +527,128 @@ function scheduleNotificationsForNextEvents(){
     }
   }
 }
-function requestNotificationPermission(){ if(!("Notification" in window)){ showToast("Notifications unsupported"); return; } Notification.requestPermission().then(p => { if(p==="granted"){ notifEnabled=true; notifyBtn.innerText="Notifications: ON"; scheduleNotificationsForNextEvents(); showToast("Notifications enabled"); } else { notifEnabled=false; notifyBtn.innerText="Enable Notifications"; clearScheduledNotifs(); showToast("Notifications blocked"); } }); }
+function requestNotificationPermission(){
+  if(!("Notification" in window)){ showToast("Notifications unsupported"); return; }
+  Notification.requestPermission().then(p => {
+    if(p==="granted"){ notifEnabled=true; notifyBtn.innerText="Notifications: ON"; scheduleNotificationsForNextEvents(); showToast("Notifications enabled"); }
+    else { notifEnabled=false; notifyBtn.innerText="Enable Notifications"; clearScheduledNotifs(); showToast("Notifications blocked"); }
+  });
+}
 notifyBtn.addEventListener("click", ()=> { if(!notifEnabled) requestNotificationPermission(); else { notifEnabled=false; notifyBtn.innerText="Enable Notifications"; clearScheduledNotifs(); showToast("Notifications disabled"); } });
 window.addEventListener("focus", scheduleNotificationsForNextEvents);
 document.addEventListener("visibilitychange", ()=> { if(document.visibilityState==="visible") scheduleNotificationsForNextEvents(); });
 
-/* ========== PiP drawing (modified to show ONLY what you requested) ========== */
+/* ============================
+   PiP drawing - only show current period timer + Next line (or countdown to next)
+   ============================ */
 const pipCanvas = document.getElementById("pipCanvas");
 const pipVideo = document.getElementById("pipVideo");
 const ctx = pipCanvas.getContext("2d");
 let pipStreamAttached=false, pipDrawingInterval=null;
 
 function drawPiPTimer(){
-  // Clear canvas
+  // Clear and background
   ctx.clearRect(0,0,pipCanvas.width,pipCanvas.height);
-
-  // Background
   ctx.fillStyle = "#0b1226";
   ctx.fillRect(0,0,pipCanvas.width,pipCanvas.height);
 
-  // Compute state
   const { now, current, next } = computeCurrentAndNext();
-
-  // Text styles
   ctx.textAlign = "center";
   ctx.fillStyle = "#ffffff";
 
+  // Utility to truncate long names
+  function truncate(str, max){
+    if(!str) return "";
+    return str.length > max ? str.slice(0, max-1) + "…" : str;
+  }
+
   if(current){
-    // Biggest: remaining time for current period
     const endDate = timeToDateToday(current.entry.end);
     const msLeft = endDate - now;
     const mmss = msToMinSec(msLeft);
 
+    // Large countdown
     ctx.font = "bold 44px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(mmss, pipCanvas.width / 2, 52); // large countdown at top
+    ctx.fillText(mmss, pipCanvas.width/2, 50);
 
-    // Current class name below the countdown
+    // Current class name
     ctx.font = "16px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-    // trim long names to avoid overflow
-    const name = current.entry.name.length > 28 ? current.entry.name.slice(0,25) + "…" : current.entry.name;
-    ctx.fillText(name, pipCanvas.width / 2, 82);
+    ctx.fillText(truncate(current.entry.name, 28), pipCanvas.width/2, 82);
 
-    // Next period line (single line) at bottom
+    // Next line (single)
     ctx.font = "13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
     if(next){
-      const nextText = `Next: ${next.entry.name} — starts ${next.entry.start}`;
-      ctx.fillText(nextText, pipCanvas.width / 2, 112);
+      const nextText = `Next: ${truncate(next.entry.name, 28)} — starts ${next.entry.start}`;
+      ctx.fillText(nextText, pipCanvas.width/2, 112);
     } else {
-      ctx.fillText("No more periods today", pipCanvas.width / 2, 112);
+      ctx.fillText("No more periods today", pipCanvas.width/2, 112);
     }
     return;
   }
 
-  // If no current period, show countdown to next (if exists) and the next line
+  // No current: show countdown to next if available
   if(next){
     const startDate = timeToDateToday(next.entry.start);
     const msUntil = startDate - now;
     const mmss = msToMinSec(msUntil);
 
     ctx.font = "bold 44px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(mmss, pipCanvas.width / 2, 52);
+    ctx.fillText(mmss, pipCanvas.width/2, 50);
 
     ctx.font = "16px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-    const nname = next.entry.name.length > 28 ? next.entry.name.slice(0,25) + "…" : next.entry.name;
-    ctx.fillText(`Next: ${nname}`, pipCanvas.width / 2, 82);
+    ctx.fillText(truncate(next.entry.name, 28), pipCanvas.width/2, 82);
 
     ctx.font = "13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(`Starts at ${next.entry.start}`, pipCanvas.width / 2, 112);
+    ctx.fillText(`Starts at ${next.entry.start}`, pipCanvas.width/2, 112);
     return;
   }
 
-  // Fallback: nothing scheduled (minimal)
+  // Fallback: nothing today
   ctx.font = "bold 20px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("No periods today", pipCanvas.width / 2, 64);
+  ctx.fillText("No periods today", pipCanvas.width/2, 64);
   ctx.font = "13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText("Enjoy your free time!", pipCanvas.width / 2, 96);
+  ctx.fillText("Enjoy your free time!", pipCanvas.width/2, 96);
 }
 
-// small helper to wait
 function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
 
 async function enablePiP(){
-  if(!document.pictureInPictureEnabled){ showToast("Picture-in-Picture not supported on this device."); return; }
+  if(!document.pictureInPictureEnabled){ showToast("PiP unsupported"); return; }
   if(!pipStreamAttached){
     const stream = pipCanvas.captureStream(25);
     pipVideo.srcObject = stream;
     pipStreamAttached = true;
   }
-
   if(pipDrawingInterval) clearInterval(pipDrawingInterval);
   drawPiPTimer();
-  pipDrawingInterval = setInterval(()=>{ drawPiPTimer(); }, 500); // refresh twice a second
+  pipDrawingInterval = setInterval(drawPiPTimer, 500);
 
   try {
-    // play then request PiP (user gesture required for play() in many browsers)
     await pipVideo.play().catch(async ()=>{ await wait(100); return pipVideo.play().catch(()=>{}); });
     await wait(120);
     await pipVideo.requestPictureInPicture();
-    floatingBtn.innerText = "Exit Floating";
-    showToast("Floating mode enabled.");
+    floatingBtn.innerText="Exit Floating";
+    showToast("Floating enabled");
   } catch(e){
-    console.warn("PiP error:", e);
-    showToast("Could not open floating window: " + (e && e.message ? e.message : e));
-    if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval = null; }
+    console.warn("PiP err", e);
+    showToast("Could not open floating window");
+    if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval=null; }
   }
 }
 
 async function disablePiP(){
-  try{ if(document.pictureInPictureElement) await document.exitPictureInPicture(); } catch(e){}
-  if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval = null; }
-  floatingBtn.innerText = "Floating Mode";
-  showToast("Floating mode stopped.");
+  try{ if(document.pictureInPictureElement) await document.exitPictureInPicture(); }catch(e){}
+  if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval=null; }
+  floatingBtn.innerText="Floating Mode";
+  showToast("Floating stopped");
 }
 
-floatingBtn.addEventListener("click", async ()=>{
-  if(document.pictureInPictureElement){ await disablePiP(); return; }
-  await enablePiP();
-});
+floatingBtn.addEventListener("click", async ()=>{ if(document.pictureInPictureElement){ await disablePiP(); return; } await enablePiP(); });
 document.addEventListener('leavepictureinpicture', ()=>{ if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval=null; } floatingBtn.innerText="Floating Mode"; });
 
-/* init */
+/* ============================
+   Initialization
+   ============================ */
 function init(){
   viewWeekSelect.value = getActiveWeek();
   weeksEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=true);
