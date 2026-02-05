@@ -90,6 +90,8 @@
   </section>
 
   <section class="controls" role="toolbar" aria-label="Schedule controls">
+    <!-- kept the Open button; it is now wired correctly -->
+    <button id="openEditorBtn" aria-haspopup="dialog" title="Open schedule editor">Open / Edit Schedule</button>
     <button id="floatingBtn" title="Start floating PiP mode">Floating Mode</button>
     <button id="exportBtn" title="Download schedule as JSON">Export JSON</button>
     <button id="importBtn" title="Load schedule from JSON">Import JSON</button>
@@ -178,10 +180,6 @@
 /* ============================
    Storage keys & migration
    ============================ */
-/*
-We try keys in this order (newest → legacy). If an older key is found we migrate it
-to the current key so your saved schedule reappears.
-*/
 const STORAGE_KEYS = [
   "period_timer_schedule_v2",   // current
   "period_timer_schedule_v1",   // earlier version (if present)
@@ -203,21 +201,18 @@ function validateSchedule(obj){
 
 function loadSchedule(){
   try{
-    // try keys in order — find first valid schedule
     for(const key of STORAGE_KEYS){
       const raw = localStorage.getItem(key);
       if(!raw) continue;
       try{
         const parsed = JSON.parse(raw);
         if(validateSchedule(parsed)){
-          // if this isn't the primary key, write it to primary key for future runs
           if(key !== STORAGE_KEYS[0]) {
             try { localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(parsed)); } catch(e){ /* ignore */ }
           }
           return parsed;
         }
       } catch(e){
-        // parsing failed, try next key
         continue;
       }
     }
@@ -256,6 +251,7 @@ function msToMinSec(ms){ if(ms<=0) return "0:00"; const s=Math.floor(ms/1000); c
 /* ============================
    DOM refs & editor
    ============================ */
+const openEditorBtn = document.getElementById("openEditorBtn");
 const editor = document.getElementById("editor");
 const addBtn = document.getElementById("addBtn");
 const classNameInput = document.getElementById("className");
@@ -291,6 +287,11 @@ document.addEventListener("keydown",(e)=>{
     if(!editor.classList.contains("hidden")) closeEditor();
   }
 });
+
+/* ===== Wire editor buttons (fixed) ===== */
+if(openEditorBtn) openEditorBtn.addEventListener("click", openEditor);
+const closeEditorBtn = document.getElementById("closeEditorBtn");
+if(closeEditorBtn) closeEditorBtn.addEventListener("click", closeEditor);
 
 function toggleEditor(){ if(editor.classList.contains("hidden")) openEditor(); else closeEditor(); }
 function openEditor(){ editor.classList.remove("hidden"); renderScheduleList(); classNameInput.focus(); }
@@ -333,13 +334,12 @@ function addOrSave(){
   saveSchedule(schedule);
   clearEditor();
   renderScheduleList();
-  renderScheduleSummary(); // update the visible summary
+  renderScheduleSummary(); // update summary
   scheduleNotificationsForNextEvents();
 }
 addBtn.addEventListener("click", addOrSave);
-document.getElementById("closeEditorBtn").addEventListener("click", closeEditor);
 
-/* Render editor list (for editing) */
+/* Render editor list */
 function renderScheduleList(){
   scheduleList.innerHTML = "";
   for(let d=0; d<7; d++){
@@ -363,7 +363,7 @@ function renderScheduleList(){
   }
 }
 
-/* Visible summary so user always sees schedule without opening the editor */
+/* Visible summary */
 function renderScheduleSummary(){
   scheduleSummary.innerHTML = "";
   for(let d=0; d<7; d++){
@@ -393,8 +393,6 @@ function renderScheduleSummary(){
     scheduleSummary.appendChild(dayBlock);
   }
 }
-
-/* helper to escape displayed HTML in names */
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, (s) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 }
@@ -412,7 +410,7 @@ function openEdit(day,index){
   classNameInput.focus();
 }
 
-/* Export / Import (with validation) */
+/* Export / Import */
 exportBtn.addEventListener("click", ()=> {
   try {
     const blob = new Blob([JSON.stringify(schedule, null, 2)], {type:'application/json'});
@@ -427,7 +425,6 @@ exportBtn.addEventListener("click", ()=> {
     showToast("Exported schedule.");
   } catch(e){ showToast("Export failed."); }
 });
-
 importBtn.addEventListener("click", ()=> importFile.click());
 importFile.addEventListener("change", (ev) => {
   const f = ev.target.files[0];
@@ -460,9 +457,7 @@ clearBtn.addEventListener("click", () => {
   showToast("Schedule cleared.");
 });
 
-/* ============================
-   Popup / compute current & next
-   ============================ */
+/* Popup / compute current & next */
 function computeCurrentAndNext(){
   const now = new Date();
   const dayIdx = (now.getDay() + 6) % 7;
@@ -514,9 +509,7 @@ function updatePopup(){
 popup.addEventListener("click", () => openEditor());
 popup.addEventListener("keydown", (e) => { if(e.key === "Enter" || e.key === " ") openEditor(); });
 
-/* ============================
-   Notifications
-   ============================ */
+/* Notifications */
 function clearScheduledNotifs(){ scheduledNotifs.forEach(id=>clearTimeout(id)); scheduledNotifs = []; }
 function scheduleNotificationsForNextEvents(){
   clearScheduledNotifs();
@@ -541,7 +534,6 @@ function scheduleNotificationsForNextEvents(){
     }
   }
 }
-
 function requestNotificationPermission(){
   if(!("Notification" in window)){ showToast("Notifications unsupported in this browser"); return; }
   Notification.requestPermission().then(p => {
@@ -565,9 +557,7 @@ notifyBtn.addEventListener("click", ()=> {
 window.addEventListener("focus", scheduleNotificationsForNextEvents);
 document.addEventListener("visibilitychange", ()=> { if(document.visibilityState === "visible") scheduleNotificationsForNextEvents(); });
 
-/* ============================
-   PiP canvas drawing
-   ============================ */
+/* PiP canvas drawing */
 const pipCanvas = document.getElementById("pipCanvas");
 const pipVideo = document.getElementById("pipVideo");
 const ctx = pipCanvas.getContext("2d");
