@@ -58,9 +58,10 @@
   <section class="info" aria-live="polite">
     <strong>How to use</strong>
     <ol style="margin:6px 0 0 18px;padding:0">
-      <li>Set which week is currently <strong>Active</strong> (A or B). PiP, popup and notifications follow the <em>Active</em> week.</li>
-      <li>Use the <strong>View</strong> selector to show or edit the schedule for Week A or Week B.</li>
-      <li>When adding an entry you can save it to Week A, Week B, or both.</li>
+      <li>Click <strong>View week</strong> to show the schedule for Week A or Week B.</li>
+      <li>Click <strong>Edit Schedule</strong> to open the editor and add or change periods for the selected week(s).</li>
+      <li>Click <strong>Floating Mode</strong> so you have access to the timer when you switch tabs or go to different apps (this should always be on).</li>
+      <li>Enable <strong>Notifications</strong> to receive reminders and alerts.</li>
     </ol>
     <hr style="margin:8px 0">
     <strong>Export / Import</strong>
@@ -89,7 +90,7 @@
 
     <div style="flex:1"></div>
 
-    <button id="openEditorBtn" title="Open schedule editor">Open / Edit Schedule</button>
+    <button id="openEditorBtn" title="Open schedule editor">Edit Schedule</button>
     <button id="floatingBtn" title="Start floating PiP mode">Floating Mode</button>
     <button id="exportBtn" title="Download schedule as JSON">Export JSON</button>
     <button id="importBtn" title="Load schedule from JSON">Import JSON</button>
@@ -579,7 +580,7 @@ notifyBtn.addEventListener("click", ()=> { if(!notifEnabled) requestNotification
 window.addEventListener("focus", scheduleNotificationsForNextEvents);
 document.addEventListener("visibilitychange", ()=> { if(document.visibilityState==="visible") scheduleNotificationsForNextEvents(); });
 
-/* PiP (uses active week for displayed times) - unchanged drawing but uses computeCurrentAndNext */
+/* PiP (uses active week for displayed times) */
 const pipCanvas = document.getElementById("pipCanvas");
 const pipVideo = document.getElementById("pipVideo");
 const ctx = pipCanvas.getContext("2d");
@@ -621,10 +622,9 @@ document.addEventListener('leavepictureinpicture', ()=>{ if(pipDrawingInterval){
 
 /* Initialization */
 function init(){
-  // initial UI states
   viewWeekSelect.value = getActiveWeek();
   document.getElementById("activeWeekLabel").innerText = " " + getActiveWeek();
-  weeksEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=true); // default new entries to both weeks
+  weeksEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=true);
   renderScheduleList();
   renderScheduleSummary();
   updatePopup();
