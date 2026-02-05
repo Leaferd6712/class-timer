@@ -33,8 +33,9 @@
   .days{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
   .day{display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;border:1px solid #eee;background:#fafafa;font-size:13px;cursor:pointer}
   .day input{margin:0}
-  .schedule-list{margin-top:12px}
-  .entry{background:#fff;padding:8px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border:1px solid #f0f0f0}
+  .schedule-summary{background:#fff;padding:12px;border-radius:8px;border:1px solid #f0f0f0;margin-bottom:12px}
+  .schedule-day{margin-bottom:8px}
+  .schedule-entry{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:6px;background:#fafafa;margin-top:6px;border:1px solid #efefef}
   .tag{background:#eef2ff;padding:4px 6px;border-radius:6px;font-size:12px;margin-left:6px}
   .popup{position:fixed;bottom:12px;right:12px;background:var(--accent);color:white;padding:12px 14px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.35);width:300px;font-size:14px;opacity:0.98;cursor:pointer;display:flex;flex-direction:column;gap:6px}
   .popup h3{margin:0 0 0;font-size:15px;line-height:1}
@@ -43,13 +44,14 @@
   .hidden{display:none !important}
   .toast-wrap{position:fixed;left:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:9999}
   .toast{background:#fff;padding:10px 12px;border-radius:8px;box-shadow:var(--shadow);border:1px solid #e5e7eb;font-size:14px}
-  template{display:none}
   @media(max-width:640px){
     .popup{width:92%;left:4%;right:4%}
     .row{flex-direction:column}
     .small{width:100%}
   }
-  @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important}
+  }
   pre.sample{background:#0b1226;color:#fff;padding:8px;border-radius:8px;overflow:auto;font-size:13px}
 </style>
 </head>
@@ -57,7 +59,7 @@
 <main class="container" id="main">
   <header>
     <h1>Period Timer Floating Screen</h1>
-    <p class="muted">Keep this page open to allow the floating timer to run. The floating timer uses your browser's Picture-in-Picture (PiP) feature so it can appear above other windows or when you're on another tab or app.</p>
+    <p class="muted">Keep this page open to allow the floating timer to run. The floating timer uses Picture-in-Picture (PiP) so it can appear while you switch tabs or apps (when supported).</p>
   </header>
 
   <section class="info" aria-live="polite">
@@ -65,19 +67,19 @@
     <ol style="margin:6px 0 0 18px;padding:0">
       <li>Click <em>Floating Mode</em> to start the floating timer (first time requires a user gesture).</li>
       <li>If your browser supports Picture-in-Picture (PiP) the timer will open in a small floating window that stays on top while you switch tabs or apps.</li>
-      <li>On some browsers/devices PiP will only work when the tab is open (but you can switch apps) — this is a browser limitation, not the app. If PiP isn't supported you will be informed.</li>
+      <li>Some browsers require the tab to remain open for PiP to work (this is a browser limitation).</li>
     </ol>
 
     <hr style="margin:8px 0">
 
     <strong>Export / Import JSON (backup & restore)</strong>
     <p class="muted" style="margin:4px 0 6px">
-      • <em>Export JSON</em> downloads your schedule as a JSON file you can save (useful for backups or moving to another device).<br>
-      • <em>Import JSON</em> lets you select a previously exported file. The importer validates the structure and will refuse files that don't match the expected layout.
+      • <em>Export JSON</em> downloads your current schedule as a `.json` file (useful for backups or moving to another device).<br>
+      • <em>Import JSON</em> lets you load a file previously exported from this app. The importer validates the file and will reject invalid files.
     </p>
 
     <div>
-      <small class="muted">Example of the JSON structure you will export / import:</small>
+      <small class="muted">Example JSON format:</small>
       <pre class="sample" aria-hidden="true">{
   "days": [
     [{"name":"Math","start":"08:40","end":"09:30"}],  // Monday
@@ -88,7 +90,6 @@
   </section>
 
   <section class="controls" role="toolbar" aria-label="Schedule controls">
-    <!-- Open / Edit Schedule button removed per request -->
     <button id="floatingBtn" title="Start floating PiP mode">Floating Mode</button>
     <button id="exportBtn" title="Download schedule as JSON">Export JSON</button>
     <button id="importBtn" title="Load schedule from JSON">Import JSON</button>
@@ -97,7 +98,14 @@
     <button id="notifyBtn" title="Enable or disable browser notifications">Enable Notifications</button>
   </section>
 
-  <!-- Editor still present but opened via popup or Ctrl/Cmd+E -->
+  <!-- Visible schedule summary so you always see entries without opening the editor -->
+  <section class="schedule-summary" aria-label="Schedule summary">
+    <strong>Schedule summary</strong>
+    <div id="scheduleSummary" style="margin-top:8px"></div>
+    <div class="muted" style="margin-top:8px">Click an Edit button to open the editor for that entry. You can also press <strong>Ctrl/Cmd+E</strong> or click the floating popup.</div>
+  </section>
+
+  <!-- Editor is still present but hidden (open via popup, shortcut, or Edit button) -->
   <section id="editor" class="editor hidden" role="dialog" aria-modal="false" aria-label="Schedule editor">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <strong>Schedule Editor</strong>
@@ -131,20 +139,20 @@
 
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
       <button id="addBtn">Add / Save Entry</button>
-      <div class="muted" id="editorHint" aria-live="polite">Tip: press <strong>Ctrl/Cmd+E</strong> to toggle editor or click the floating popup.</div>
+      <div class="muted" id="editorHint" aria-live="polite">Tip: press Enter while focused on a field to add when ready.</div>
     </div>
 
-    <div class="schedule-list" id="scheduleList" aria-live="polite"></div>
+    <div class="schedule-list" id="scheduleList" aria-live="polite" style="margin-top:12px"></div>
   </section>
 
-  <div class="footer">Tip: Pin the tab and keep the browser open. Notifications and PiP behaviour are controlled by your browser.</div>
+  <div class="footer">Tip: Pin the tab and keep the browser open. Notifications work while the page is loaded.</div>
 </main>
 
 <!-- Hidden PiP elements -->
 <video id="pipVideo" muted playsinline style="display:none" aria-hidden="true"></video>
 <canvas id="pipCanvas" width="360" height="160" style="display:none" aria-hidden="true"></canvas>
 
-<!-- popup opens editor -->
+<!-- in-page popup (click to open editor) -->
 <div class="popup" id="popup" role="button" aria-pressed="false" tabindex="0" title="Click to open editor">
   <div style="display:flex;justify-content:space-between;align-items:center">
     <h3 id="popupTitle">No active period</h3>
@@ -153,6 +161,7 @@
   <div class="line" id="popupTime">Next: —</div>
 </div>
 
+<!-- small template & toasts -->
 <template id="entryTemplate">
   <div class="entry" role="listitem">
     <div class="left"><strong class="entry-name"></strong> <span class="tag entry-time"></span></div>
@@ -166,25 +175,70 @@
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 
 <script>
-/* Slightly trimmed JS: keeps the previous robust functionality */
-const STORAGE_KEY = "period_timer_schedule_v2";
+/* ============================
+   Storage keys & migration
+   ============================ */
+/*
+We try keys in this order (newest → legacy). If an older key is found we migrate it
+to the current key so your saved schedule reappears.
+*/
+const STORAGE_KEYS = [
+  "period_timer_schedule_v2",   // current
+  "period_timer_schedule_v1",   // earlier version (if present)
+  "period_timer_schedule"       // original/older key
+];
+
 function defaultSchedule(){ return { days: [[],[],[],[],[],[],[]] }; }
+
+function validateSchedule(obj){
+  if(!obj || !obj.days || !Array.isArray(obj.days) || obj.days.length !== 7) return false;
+  for(const d of obj.days){
+    if(!Array.isArray(d)) return false;
+    for(const e of d){
+      if(!e || typeof e.name !== "string" || typeof e.start !== "string" || typeof e.end !== "string") return false;
+    }
+  }
+  return true;
+}
+
 function loadSchedule(){
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return defaultSchedule();
-    const parsed = JSON.parse(raw);
-    if(!parsed.days || !Array.isArray(parsed.days) || parsed.days.length !== 7) return defaultSchedule();
-    for(const d of parsed.days) if(!Array.isArray(d)) return defaultSchedule();
-    return parsed;
-  }catch(e){ return defaultSchedule(); }
+    // try keys in order — find first valid schedule
+    for(const key of STORAGE_KEYS){
+      const raw = localStorage.getItem(key);
+      if(!raw) continue;
+      try{
+        const parsed = JSON.parse(raw);
+        if(validateSchedule(parsed)){
+          // if this isn't the primary key, write it to primary key for future runs
+          if(key !== STORAGE_KEYS[0]) {
+            try { localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(parsed)); } catch(e){ /* ignore */ }
+          }
+          return parsed;
+        }
+      } catch(e){
+        // parsing failed, try next key
+        continue;
+      }
+    }
+    return defaultSchedule();
+  } catch(err){
+    console.warn("Failed to load schedule:", err);
+    return defaultSchedule();
+  }
 }
-function saveSchedule(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){ showToast("Unable to save schedule"); } }
 
+function saveSchedule(s){
+  try{ localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(s)); } catch(e){ showToast("Unable to save schedule: " + (e.message || e)); }
+}
+
+/* ============================
+   Model & helpers
+   ============================ */
 let schedule = loadSchedule();
 const dayNames = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
-function showToast(text, ttl=3000){
+function showToast(text, ttl = 3000){
   const wrap = document.getElementById("toastWrap");
   const node = document.createElement("div");
   node.className = "toast";
@@ -194,21 +248,27 @@ function showToast(text, ttl=3000){
 }
 
 function timeToDateToday(hm){
-  const [h,m] = hm.split(":").map(n=>parseInt(n,10)||0);
+  const [h,m] = hm.split(":").map(n=>parseInt(n,10) || 0);
   const d = new Date(); d.setHours(h,m,0,0); return d;
 }
 function msToMinSec(ms){ if(ms<=0) return "0:00"; const s=Math.floor(ms/1000); const m=Math.floor(s/60); return `${m}:${(s%60).toString().padStart(2,"0")}`; }
 
+/* ============================
+   DOM refs & editor
+   ============================ */
 const editor = document.getElementById("editor");
+const addBtn = document.getElementById("addBtn");
 const classNameInput = document.getElementById("className");
 const startTimeInput = document.getElementById("startTime");
 const endTimeInput = document.getElementById("endTime");
 const daysEl = document.getElementById("days");
 const scheduleList = document.getElementById("scheduleList");
+const scheduleSummary = document.getElementById("scheduleSummary");
 const popup = document.getElementById("popup");
 const popupTitle = document.getElementById("popupTitle");
 const popupTime = document.getElementById("popupTime");
 const popupSub = document.getElementById("popupSub");
+
 const exportBtn = document.getElementById("exportBtn");
 const importBtn = document.getElementById("importBtn");
 const importFile = document.getElementById("importFile");
@@ -221,49 +281,67 @@ let editingEntry = null;
 let notifEnabled = false;
 let scheduledNotifs = [];
 
+/* keyboard shortcut: Ctrl/Cmd+E toggles editor; Esc closes */
 document.addEventListener("keydown",(e)=>{
-  if((e.key==="e"||e.key==="E") && (e.ctrlKey||e.metaKey)){ e.preventDefault(); toggleEditor(); }
-  if(e.key==="Escape"){ if(!editor.classList.contains("hidden")) closeEditor(); }
+  if((e.key === "e" || e.key === "E") && (e.ctrlKey || e.metaKey)){
+    e.preventDefault();
+    toggleEditor();
+  }
+  if(e.key === "Escape"){
+    if(!editor.classList.contains("hidden")) closeEditor();
+  }
 });
 
 function toggleEditor(){ if(editor.classList.contains("hidden")) openEditor(); else closeEditor(); }
 function openEditor(){ editor.classList.remove("hidden"); renderScheduleList(); classNameInput.focus(); }
-function closeEditor(){ editor.classList.add("hidden"); editingEntry = null; clearEditor(); }
+function closeEditor(){ editor.classList.add("hidden"); editingEntry=null; clearEditor(); }
 
 function clearEditor(){
   classNameInput.value=""; startTimeInput.value=""; endTimeInput.value="";
   daysEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
-  editingEntry=null; document.getElementById("addBtn").innerText="Add / Save Entry";
+  editingEntry=null; addBtn.innerText="Add / Save Entry";
 }
 
+/* Add / Save entry */
 function addOrSave(){
-  const name = classNameInput.value.trim(), start = startTimeInput.value, end = endTimeInput.value;
-  if(!name||!start||!end){ showToast("Enter name, start, end"); return; }
+  const name = classNameInput.value.trim();
+  const start = startTimeInput.value;
+  const end = endTimeInput.value;
+  if(!name || !start || !end){ showToast("Please enter name, start and end times."); return; }
   const selected = Array.from(daysEl.querySelectorAll("input[type=checkbox]")).filter(cb=>cb.checked).map(cb=>parseInt(cb.value,10));
-  if(selected.length===0){ showToast("Select at least one day"); return; }
+  if(selected.length===0){ showToast("Select at least one day."); return; }
   const sD = timeToDateToday(start), eD = timeToDateToday(end);
-  if(eD <= sD){ showToast("End must be after start"); return; }
+  if(eD <= sD){ showToast("End time must be after start time."); return; }
+
   if(editingEntry){
     const {day,index} = editingEntry;
     schedule.days[day][index] = {name,start,end};
-    showToast("Saved changes");
+    showToast("Saved changes.");
   } else {
-    for(const d of selected) {
-      const exists = schedule.days[d].some(e => e.name===name && e.start===start && e.end===end);
+    for(const d of selected){
+      const exists = schedule.days[d].some(e => e.name === name && e.start === start && e.end === end);
       if(!exists) schedule.days[d].push({name,start,end});
     }
-    showToast("Added entry");
+    showToast("Added entry.");
   }
+
+  // sort
   for(let d=0; d<7; d++){
     schedule.days[d].sort((a,b)=>{ const [ah,am]=a.start.split(":").map(Number); const [bh,bm]=b.start.split(":").map(Number); return ah*60+am - (bh*60+bm); });
   }
-  saveSchedule(schedule); clearEditor(); renderScheduleList(); scheduleNotificationsForNextEvents();
+
+  saveSchedule(schedule);
+  clearEditor();
+  renderScheduleList();
+  renderScheduleSummary(); // update the visible summary
+  scheduleNotificationsForNextEvents();
 }
-document.getElementById("addBtn").addEventListener("click", addOrSave);
+addBtn.addEventListener("click", addOrSave);
 document.getElementById("closeEditorBtn").addEventListener("click", closeEditor);
 
+/* Render editor list (for editing) */
 function renderScheduleList(){
-  scheduleList.innerHTML="";
+  scheduleList.innerHTML = "";
   for(let d=0; d<7; d++){
     const list = schedule.days[d];
     const block = document.createElement("div"); block.style.marginBottom="8px";
@@ -277,7 +355,7 @@ function renderScheduleList(){
         frag.querySelector(".entry-name").textContent = entry.name;
         frag.querySelector(".entry-time").textContent = `${entry.start}–${entry.end}`;
         frag.querySelector(".edit").addEventListener("click", ()=> openEdit(d, idx));
-        frag.querySelector(".delete").addEventListener("click", ()=> { if(!confirm("Delete?")) return; schedule.days[d].splice(idx,1); saveSchedule(schedule); renderScheduleList(); showToast("Deleted"); });
+        frag.querySelector(".delete").addEventListener("click", ()=> { if(!confirm("Delete?")) return; schedule.days[d].splice(idx,1); saveSchedule(schedule); renderScheduleList(); renderScheduleSummary(); showToast("Deleted"); });
         block.appendChild(frag);
       });
     }
@@ -285,43 +363,131 @@ function renderScheduleList(){
   }
 }
 
-function openEdit(day,index){
-  const entry = schedule.days[day][index];
-  classNameInput.value = entry.name; startTimeInput.value = entry.start; endTimeInput.value = entry.end;
-  daysEl.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false); daysEl.querySelectorAll("input[type=checkbox]")[day].checked=true;
-  editingEntry = {day,index}; document.getElementById("addBtn").innerText="Save Changes"; editor.classList.remove("hidden"); classNameInput.focus();
+/* Visible summary so user always sees schedule without opening the editor */
+function renderScheduleSummary(){
+  scheduleSummary.innerHTML = "";
+  for(let d=0; d<7; d++){
+    const list = schedule.days[d];
+    const dayBlock = document.createElement("div");
+    dayBlock.className = "schedule-day";
+    const title = document.createElement("div");
+    title.style.fontWeight = "600";
+    title.innerText = dayNames[d];
+    dayBlock.appendChild(title);
+    if(list.length === 0){
+      const p = document.createElement("div"); p.className="muted"; p.innerText="No entries"; dayBlock.appendChild(p);
+    } else {
+      list.forEach((entry, idx)=>{
+        const row = document.createElement("div");
+        row.className = "schedule-entry";
+        const left = document.createElement("div");
+        left.innerHTML = `<strong>${escapeHtml(entry.name)}</strong> <span class="tag">${entry.start}–${entry.end}</span>`;
+        const right = document.createElement("div");
+        const editBtn = document.createElement("button"); editBtn.innerText = "Edit"; editBtn.addEventListener("click", ()=> openEdit(d, idx));
+        const delBtn = document.createElement("button"); delBtn.innerText = "Delete"; delBtn.addEventListener("click", ()=> { if(!confirm("Delete?")) return; schedule.days[d].splice(idx,1); saveSchedule(schedule); renderScheduleList(); renderScheduleSummary(); showToast("Deleted"); });
+        right.appendChild(editBtn); right.appendChild(delBtn);
+        row.appendChild(left); row.appendChild(right);
+        dayBlock.appendChild(row);
+      });
+    }
+    scheduleSummary.appendChild(dayBlock);
+  }
 }
 
-/* Export / Import */
-exportBtn.addEventListener("click", ()=>{
-  const blob = new Blob([JSON.stringify(schedule, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "period-schedule.json"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  showToast("Exported JSON");
+/* helper to escape displayed HTML in names */
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, (s) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+function openEdit(day,index){
+  const entry = schedule.days[day][index];
+  classNameInput.value = entry.name;
+  startTimeInput.value = entry.start;
+  endTimeInput.value = entry.end;
+  daysEl.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = false);
+  daysEl.querySelectorAll("input[type=checkbox]")[day].checked = true;
+  editingEntry = {day,index};
+  addBtn.innerText = "Save Changes";
+  editor.classList.remove("hidden");
+  classNameInput.focus();
+}
+
+/* Export / Import (with validation) */
+exportBtn.addEventListener("click", ()=> {
+  try {
+    const blob = new Blob([JSON.stringify(schedule, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "period-schedule.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast("Exported schedule.");
+  } catch(e){ showToast("Export failed."); }
 });
+
 importBtn.addEventListener("click", ()=> importFile.click());
-importFile.addEventListener("change", (ev)=>{
-  const f = ev.target.files[0]; if(!f) return;
+importFile.addEventListener("change", (ev) => {
+  const f = ev.target.files[0];
+  if(!f) return;
   const r = new FileReader();
-  r.onload = ()=>{ try{ const p = JSON.parse(r.result); if(!p.days || !Array.isArray(p.days) || p.days.length!==7) throw new Error("Invalid format"); for(const d of p.days) if(!Array.isArray(d)) throw new Error("Invalid day"); schedule = p; saveSchedule(schedule); renderScheduleList(); showToast("Imported"); scheduleNotificationsForNextEvents(); }catch(e){ showToast("Import failed: "+(e.message||e)); } };
+  r.onload = () => {
+    try {
+      const p = JSON.parse(r.result);
+      if(!validateSchedule(p)) throw new Error("Invalid format");
+      schedule = p;
+      saveSchedule(schedule);
+      renderScheduleList();
+      renderScheduleSummary();
+      showToast("Imported schedule.");
+      scheduleNotificationsForNextEvents();
+    } catch(e) {
+      showToast("Import failed: " + (e.message || e));
+    }
+  };
   r.readAsText(f);
 });
 
 /* Clear schedule */
-clearBtn.addEventListener("click", ()=> { if(!confirm("Clear entire schedule?")) return; schedule = defaultSchedule(); saveSchedule(schedule); renderScheduleList(); showToast("Cleared"); });
+clearBtn.addEventListener("click", () => {
+  if(!confirm("Clear entire schedule?")) return;
+  schedule = defaultSchedule();
+  saveSchedule(schedule);
+  renderScheduleList();
+  renderScheduleSummary();
+  showToast("Schedule cleared.");
+});
 
-/* Popup / compute current & next */
+/* ============================
+   Popup / compute current & next
+   ============================ */
 function computeCurrentAndNext(){
-  const now = new Date(); const dayIdx = (now.getDay()+6)%7; const todays = schedule.days[dayIdx] || [];
+  const now = new Date();
+  const dayIdx = (now.getDay() + 6) % 7;
+  const todays = schedule.days[dayIdx] || [];
   const curMin = now.getHours()*60 + now.getMinutes() + now.getSeconds()/60.0;
-  let current=null, next=null;
+  let current = null, next = null;
   for(let i=0;i<todays.length;i++){
-    const e = todays[i]; const [sh,sm]=e.start.split(":").map(Number); const [eh,em]=e.end.split(":").map(Number);
-    const startMin = sh*60+sm, endMin = eh*60+em;
-    if(curMin>=startMin && curMin<endMin){ current={entry:e,startMin,endMin,index:i}; if(i+1<todays.length) next={entry:todays[i+1],index:i+1}; break; }
-    if(curMin<startMin){ next={entry:e,index:i}; break; }
+    const e = todays[i];
+    const [sh,sm] = e.start.split(":").map(Number);
+    const [eh,em] = e.end.split(":").map(Number);
+    const startMin = sh*60 + sm;
+    const endMin = eh*60 + em;
+    if(curMin >= startMin && curMin < endMin){
+      current = {entry:e, startMin, endMin, index:i};
+      if(i+1 < todays.length) next = {entry:todays[i+1], index:i+1};
+      break;
+    }
+    if(curMin < startMin){
+      next = {entry:e, index:i};
+      break;
+    }
   }
   return { now, current, next };
 }
+
 function updatePopup(){
   const {now,current,next} = computeCurrentAndNext();
   if(current){
@@ -330,84 +496,165 @@ function updatePopup(){
     popupTitle.innerText = `${current.entry.name} — ${msToMinSec(msLeft)}`;
     popupTime.innerText = `Ends at ${current.entry.end} (${msToMinSec(msLeft)})`;
     popupSub.innerText = next ? `Next: ${next.entry.name} at ${next.entry.start}` : `No more periods today`;
-    popup.setAttribute("aria-pressed","true");
+    popup.setAttribute("aria-pressed", "true");
   } else if(next){
     const startDate = timeToDateToday(next.entry.start);
     const msUntil = startDate - now;
     popupTitle.innerText = `No active period`;
     popupTime.innerText = `Next: ${next.entry.name} in ${msToMinSec(msUntil)}`;
     popupSub.innerText = `Starts at ${next.entry.start}`;
-    popup.setAttribute("aria-pressed","false");
+    popup.setAttribute("aria-pressed", "false");
   } else {
     popupTitle.innerText = "No scheduled periods today";
     popupTime.innerText = "Enjoy your free time!";
     popupSub.innerText = "";
-    popup.setAttribute("aria-pressed","false");
+    popup.setAttribute("aria-pressed", "false");
   }
 }
-popup.addEventListener("click", ()=> openEditor());
-popup.addEventListener("keydown", (e)=> { if(e.key==="Enter"||e.key===" ") openEditor(); });
+popup.addEventListener("click", () => openEditor());
+popup.addEventListener("keydown", (e) => { if(e.key === "Enter" || e.key === " ") openEditor(); });
 
-/* Notifications (simple) */
-function clearScheduledNotifs(){ scheduledNotifs.forEach(id=>clearTimeout(id)); scheduledNotifs=[]; }
+/* ============================
+   Notifications
+   ============================ */
+function clearScheduledNotifs(){ scheduledNotifs.forEach(id=>clearTimeout(id)); scheduledNotifs = []; }
 function scheduleNotificationsForNextEvents(){
   clearScheduledNotifs();
   if(!notifEnabled || !("Notification" in window)) return;
-  if(Notification.permission!=="granted") return;
-  const now = new Date(); const dayIdx=(now.getDay()+6)%7; const todays = schedule.days[dayIdx] || [];
+  if(Notification.permission !== "granted") return;
+  const now = new Date();
+  const dayIdx = (now.getDay() + 6) % 7;
+  const todays = schedule.days[dayIdx] || [];
   for(const entry of todays){
     const startDate = timeToDateToday(entry.start);
-    if(startDate>now){ const ms=startDate-now; scheduledNotifs.push(setTimeout(()=> new Notification("Class starting: "+entry.name,{body:`Starts at ${entry.start}`}), ms)); const ms5 = ms - 5*60*1000; if(ms5>0) scheduledNotifs.push(setTimeout(()=> new Notification("Upcoming in 5 min: "+entry.name,{body:entry.start}), ms5)); }
     const endDate = timeToDateToday(entry.end);
-    if(endDate>now){ const msEnd = endDate-now; const ms1Before = msEnd - 60*1000; if(ms1Before>0) scheduledNotifs.push(setTimeout(()=> new Notification("1 minute left: "+entry.name,{body:entry.end}), ms1Before)); }
+    if(startDate > now){
+      const ms = startDate - now;
+      scheduledNotifs.push(setTimeout(()=> new Notification("Class starting: " + entry.name, {body:`Starts at ${entry.start}`}), ms));
+      const ms5 = ms - 5*60*1000;
+      if(ms5 > 0) scheduledNotifs.push(setTimeout(()=> new Notification("Upcoming in 5 min: "+entry.name,{body:entry.start}), ms5));
+    }
+    if(endDate > now){
+      const msEnd = endDate - now;
+      const ms1Before = msEnd - 60*1000;
+      if(ms1Before > 0) scheduledNotifs.push(setTimeout(()=> new Notification("1 minute left in: " + entry.name, {body: entry.end}), ms1Before));
+    }
   }
 }
-function requestNotificationPermission(){ if(!("Notification" in window)){ showToast("Notifications unsupported"); return; } Notification.requestPermission().then(p=>{ if(p==="granted"){ notifEnabled=true; notifyBtn.innerText="Notifications: ON"; scheduleNotificationsForNextEvents(); showToast("Notifications enabled"); } else { notifEnabled=false; notifyBtn.innerText="Enable Notifications"; clearScheduledNotifs(); showToast("Notifications blocked"); } }); }
-notifyBtn.addEventListener("click", ()=> { if(!notifEnabled) requestNotificationPermission(); else { notifEnabled=false; notifyBtn.innerText="Enable Notifications"; clearScheduledNotifs(); showToast("Notifications disabled"); } });
-window.addEventListener("focus", scheduleNotificationsForNextEvents);
-document.addEventListener("visibilitychange", ()=> { if(document.visibilityState==="visible") scheduleNotificationsForNextEvents(); });
 
-/* PiP */
+function requestNotificationPermission(){
+  if(!("Notification" in window)){ showToast("Notifications unsupported in this browser"); return; }
+  Notification.requestPermission().then(p => {
+    if(p === "granted"){
+      notifEnabled = true;
+      notifyBtn.innerText = "Notifications: ON";
+      scheduleNotificationsForNextEvents();
+      showToast("Notifications enabled.");
+    } else {
+      notifEnabled = false;
+      notifyBtn.innerText = "Enable Notifications";
+      clearScheduledNotifs();
+      showToast("Notifications blocked.");
+    }
+  });
+}
+notifyBtn.addEventListener("click", ()=> {
+  if(!notifEnabled) requestNotificationPermission();
+  else { notifEnabled = false; notifyBtn.innerText = "Enable Notifications"; clearScheduledNotifs(); showToast("Notifications disabled."); }
+});
+window.addEventListener("focus", scheduleNotificationsForNextEvents);
+document.addEventListener("visibilitychange", ()=> { if(document.visibilityState === "visible") scheduleNotificationsForNextEvents(); });
+
+/* ============================
+   PiP canvas drawing
+   ============================ */
 const pipCanvas = document.getElementById("pipCanvas");
 const pipVideo = document.getElementById("pipVideo");
 const ctx = pipCanvas.getContext("2d");
-let pipStreamAttached=false, pipDrawingInterval=null;
+let pipStreamAttached = false;
+let pipDrawingInterval = null;
+
 function drawPiPTimer(){
   ctx.clearRect(0,0,pipCanvas.width,pipCanvas.height);
-  ctx.fillStyle="#0b1226"; ctx.fillRect(0,0,pipCanvas.width,pipCanvas.height);
+  ctx.fillStyle = "#0b1226";
+  ctx.fillRect(0,0,pipCanvas.width,pipCanvas.height);
   const {now,current,next} = computeCurrentAndNext();
-  ctx.fillStyle="#fff"; ctx.textAlign="center";
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
   if(current){
-    const endDate=timeToDateToday(current.entry.end); const mmss=msToMinSec(endDate-now);
-    ctx.font="bold 36px system-ui, sans-serif"; ctx.fillText(mmss, pipCanvas.width/2, 70);
-    ctx.font="16px system-ui, sans-serif"; ctx.fillText(current.entry.name, pipCanvas.width/2, 110);
+    const endDate = timeToDateToday(current.entry.end);
+    const msLeft = endDate - now;
+    const mmss = msToMinSec(msLeft);
+    ctx.font = "bold 36px system-ui, sans-serif";
+    ctx.fillText(mmss, pipCanvas.width/2, 70);
+    ctx.font = "16px system-ui, sans-serif";
+    ctx.fillText(current.entry.name, pipCanvas.width/2, 110);
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(`Ends ${current.entry.end}`, pipCanvas.width/2, 135);
   } else if(next){
-    const startDate=timeToDateToday(next.entry.start); const mmss=msToMinSec(startDate-now);
-    ctx.font="bold 28px system-ui, sans-serif"; ctx.fillText(mmss, pipCanvas.width/2, 64);
-    ctx.font="14px system-ui, sans-serif"; ctx.fillText("Next: "+next.entry.name, pipCanvas.width/2, 98);
+    const startDate = timeToDateToday(next.entry.start);
+    const msUntil = startDate - now;
+    const mmss = msToMinSec(msUntil);
+    ctx.font = "bold 28px system-ui, sans-serif";
+    ctx.fillText(mmss, pipCanvas.width/2, 64);
+    ctx.font = "14px system-ui, sans-serif";
+    ctx.fillText("Next: " + next.entry.name, pipCanvas.width/2, 98);
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(`Starts ${next.entry.start}`, pipCanvas.width/2, 122);
   } else {
-    ctx.font="bold 24px system-ui, sans-serif"; ctx.fillText("No periods today", pipCanvas.width/2, 80);
+    ctx.font = "bold 24px system-ui, sans-serif";
+    ctx.fillText("No periods today", pipCanvas.width/2, 80);
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText("Enjoy your free time!", pipCanvas.width/2, 104);
   }
 }
-function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
+
+function wait(ms){ return new Promise(res => setTimeout(res, ms)); }
+
 async function enablePiP(){
-  if(!document.pictureInPictureEnabled){ showToast("Picture-in-Picture not supported on this device"); return; }
-  if(!pipStreamAttached){ const stream = pipCanvas.captureStream(25); pipVideo.srcObject = stream; pipStreamAttached=true; }
+  if(!document.pictureInPictureEnabled){ showToast("Picture-in-Picture not supported on this device."); return; }
+  if(!pipStreamAttached){
+    const stream = pipCanvas.captureStream(25);
+    pipVideo.srcObject = stream;
+    pipStreamAttached = true;
+  }
   if(pipDrawingInterval) clearInterval(pipDrawingInterval);
-  drawPiPTimer(); pipDrawingInterval = setInterval(drawPiPTimer, 500);
-  try{
-    await pipVideo.play().catch(async ()=>{ await wait(100); return pipVideo.play().catch(()=>{}); });
-    await wait(120); await pipVideo.requestPictureInPicture();
+  drawPiPTimer();
+  pipDrawingInterval = setInterval(drawPiPTimer, 500);
+
+  try {
+    await pipVideo.play().catch(async (playErr) => {
+      await wait(100);
+      return pipVideo.play().catch(err => { console.warn("pipVideo.play failed twice:", err); });
+    });
+    await wait(120);
+    await pipVideo.requestPictureInPicture();
     floatingBtn.innerText = "Exit Floating";
-    showToast("Floating mode enabled");
-  }catch(e){ console.warn("PiP error", e); showToast("Unable to open floating window"); if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval=null; } }
+    showToast("Floating mode enabled.");
+  } catch(e){
+    console.error("PiP error:", e);
+    showToast("Could not open floating window: " + (e && e.message ? e.message : e));
+    if(pipDrawingInterval) { clearInterval(pipDrawingInterval); pipDrawingInterval = null; }
+  }
 }
-async function disablePiP(){ try{ if(document.pictureInPictureElement) await document.exitPictureInPicture(); }catch(e){} if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval=null; } floatingBtn.innerText="Floating Mode"; showToast("Floating stopped"); }
-floatingBtn.addEventListener("click", async ()=>{ if(document.pictureInPictureElement){ await disablePiP(); return; } await enablePiP(); });
-document.addEventListener('leavepictureinpicture', ()=>{ if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval=null; } floatingBtn.innerText="Floating Mode"; });
+
+async function disablePiP(){
+  try { if(document.pictureInPictureElement) await document.exitPictureInPicture(); } catch(e){}
+  if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval = null; }
+  floatingBtn.innerText = "Floating Mode";
+  showToast("Floating mode stopped.");
+}
+
+floatingBtn.addEventListener("click", async ()=>{
+  if(document.pictureInPictureElement) { await disablePiP(); return; }
+  await enablePiP();
+});
+document.addEventListener('leavepictureinpicture', ()=> { if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval = null; } floatingBtn.innerText = "Floating Mode"; });
 
 /* Init */
-renderScheduleList(); updatePopup();
+renderScheduleList();
+renderScheduleSummary();
+updatePopup();
 setInterval(updatePopup, 1000);
 setInterval(()=>{ if(Notification && Notification.permission === "granted" && notifEnabled) scheduleNotificationsForNextEvents(); }, 60*1000);
 </script>
