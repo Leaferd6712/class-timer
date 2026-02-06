@@ -1,11 +1,166 @@
 {
   "weeks": {
     "A": [
-      [],
-      [],
-      [],
-      [],
-      [],
+      [
+        {
+          "name": "Science (ST1)",
+          "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "Geography (BB11)",
+          "start": "09:15",
+          "end": "10:05"
+        },
+        {
+          "name": "Year Level Assembly",
+          "start": "10:25",
+          "end": "10:50"
+        },
+        {
+          "name": "Art (CY13)",
+          "start": "10:55",
+          "end": "12:40"
+        },
+        {
+          "name": "French (S11)",
+          "start": "13:30",
+          "end": "14:20"
+        },
+        {
+          "name": "English (M13)",
+          "start": "14:25",
+          "end": "15:15"
+        }
+      ],
+      [
+        {
+          "name": "Math (CE11)",
+          "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "Geography (BB11)",
+          "start": "09:15",
+          "end": "10:05"
+        },
+        {
+          "name": "House Assembly",
+          "start": "10:25",
+          "end": "10:50"
+        },
+        {
+          "name": "French (S11)",
+          "start": "10:55",
+          "end": "11:45"
+        },
+        {
+          "name": "Religion (CE13)",
+          "start": "11:50",
+          "end": "12:40"
+        },
+        {
+          "name": "English (M13)",
+          "start": "13:30",
+          "end": "15:15"
+        }
+      ],
+      [
+        {
+          "name": "Art (CY13)",
+          "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "Math (S24)",
+          "start": "09:15",
+          "end": "10:05"
+        },
+        {
+          "name": "PE (G1)",
+          "start": "10:25",
+          "end": "12:10"
+        },
+        {
+          "name": "Science (ST3)",
+          "start": "13:30",
+          "end": "15:15"
+        }
+      ],
+      [
+        {
+          "name": "Science (ST1)",
+          "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "French (S11)",
+          "start": "09:15",
+          "end": "10:05"
+        },
+        {
+          "name": "Form",
+          "start": "10:25",
+          "end": "10:35"
+        },
+        {
+          "name": "Sport Meetings",
+          "start": "10:40",
+          "end": "10:50"
+        },
+        {
+          "name": "Math (CE11)",
+          "start": "10:55",
+          "end": "12:40"
+        },
+        {
+          "name": "English (M13)",
+          "start": "13:30",
+          "end": "14:20"
+        },
+        {
+          "name": "Geography (BB11)",
+          "start": "14:25",
+          "end": "15:15"
+        }
+      ],
+      [
+        {
+          "name": "Geography (BB11)",
+          "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "French (S11)",
+          "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "Form",
+          "start": "10:25",
+          "end": "10:50"
+        },
+        {
+          "name": "Art (CY13)",
+          "start": "10:55",
+          "end": "11:45"
+        },
+        {
+          "name": "Religion (CE13)",
+          "start": "11:50",
+          "end": "12:40"
+        },
+        {
+          "name": "English (BB2)",
+          "start": "13:30",
+          "end": "14:20"
+        },
+        {
+          "name": "Math (CE11)",
+          "start": "14:25",
+          "end": "15:15"
+        }
+      ],
       [],
       []
     ],
