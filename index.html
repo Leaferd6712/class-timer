@@ -648,39 +648,47 @@ function drawPiPTimer(){
     const timeLeft = msToMinSec(endDate - now);
 
     ctx.font = "bold 36px system-ui, sans-serif";
-    ctx.fillText(timeLeft, pipCanvas.width / 2, 60);
+    ctx.fillText(timeLeft, pipCanvas.width / 2, 56);
 
     ctx.font = "18px system-ui, sans-serif";
-    ctx.fillText(current.entry.name, pipCanvas.width / 2, 95);
+    ctx.fillText(current.entry.name, pipCanvas.width / 2, 88);
 
-    ctx.font = "14px system-ui, sans-serif";
-    ctx.fillText(
-      next
-        ? `Next: ${next.entry.name} at ${next.entry.start}`
-        : "No more periods today",
-      pipCanvas.width / 2,
-      125
-    );
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillStyle = "#d1d5db";
+    const nextList = [];
+    let cursor = next;
+    while (cursor && nextList.length < 2) {
+      nextList.push(`${cursor.entry.start} ${cursor.entry.name}`);
+      cursor = null;
+    }
+    if (next) {
+      nextList[0] = `${next.entry.start} ${next.entry.name}`;
+    }
+    const footerText = nextList.length > 0 ? `Next: ${nextList.join(" • ")}` : "No more periods today";
+    ctx.fillText(footerText, pipCanvas.width / 2, 128);
+    ctx.fillStyle = "#fff";
 
   } else if (next) {
     const startDate = timeToDateToday(next.entry.start);
     const timeUntil = msToMinSec(startDate - now);
 
     ctx.font = "bold 32px system-ui, sans-serif";
-    ctx.fillText(timeUntil, pipCanvas.width / 2, 60);
+    ctx.fillText(timeUntil, pipCanvas.width / 2, 56);
 
     ctx.font = "18px system-ui, sans-serif";
-    ctx.fillText(`Next: ${next.entry.name}`, pipCanvas.width / 2, 95);
+    ctx.fillText(`Next: ${next.entry.name}`, pipCanvas.width / 2, 88);
 
-    ctx.font = "14px system-ui, sans-serif";
-    ctx.fillText(`Starts at ${next.entry.start}`, pipCanvas.width / 2, 125);
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillStyle = "#d1d5db";
+    ctx.fillText(`Starts at ${next.entry.start}`, pipCanvas.width / 2, 128);
+    ctx.fillStyle = "#fff";
 
   } else {
     ctx.font = "bold 22px system-ui, sans-serif";
-    ctx.fillText("No periods left.", pipCanvas.width / 2, 75);
+    ctx.fillText("No periods left.", pipCanvas.width / 2, 70);
 
-    ctx.font = "14px system-ui, sans-serif";
-    ctx.fillText("Enjoy your free time!", pipCanvas.width / 2, 105);
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText("Enjoy your free time!", pipCanvas.width / 2, 108);
   }
 
   ctx.fillStyle = "#22d3ee";
