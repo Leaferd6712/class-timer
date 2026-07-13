@@ -635,11 +635,8 @@ function drawPiPTimer(){
       }
     }
     ctx.textAlign = "center";
-    ctx.fillStyle = "#22d3ee";
-    ctx.fillRect(24, 124, pipCanvas.width - 48, 24);
-    ctx.fillStyle = "#0b1226";
     ctx.font = "12px system-ui, sans-serif";
-    ctx.fillText("Back to countdown", pipCanvas.width / 2, 140);
+    ctx.fillText("Tap to return to countdown", pipCanvas.width / 2, 140);
     return;
   }
 
@@ -691,11 +688,7 @@ function drawPiPTimer(){
     ctx.fillText("Enjoy your free time!", pipCanvas.width / 2, 108);
   }
 
-  ctx.fillStyle = "#22d3ee";
-  ctx.fillRect(24, 124, pipCanvas.width - 48, 24);
-  ctx.fillStyle = "#0b1226";
-  ctx.font = "12px system-ui, sans-serif";
-  ctx.fillText("Show today's periods", pipCanvas.width / 2, 140);
+
 }
 
 function togglePiPView(){
