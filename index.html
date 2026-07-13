@@ -598,9 +598,13 @@ const pipCanvas = document.getElementById("pipCanvas");
 const pipVideo = document.getElementById("pipVideo");
 const ctx = pipCanvas.getContext("2d");
 let pipStreamAttached=false, pipDrawingInterval=null;
+let pipMode = "countdown";
 
-
-
+function getTodayEntries(){
+  const activeWeek = getActiveWeek();
+  const dayIdx = (new Date().getDay() + 6) % 7;
+  return schedule.weeks[activeWeek][dayIdx] || [];
+}
 
 function drawPiPTimer(){
   ctx.clearRect(0,0,pipCanvas.width,pipCanvas.height);
@@ -610,6 +614,34 @@ function drawPiPTimer(){
   const { now, current, next } = computeCurrentAndNext();
   ctx.fillStyle = "#fff";
   ctx.textAlign = "center";
+
+  if (pipMode === "details") {
+    ctx.font = "bold 18px system-ui, sans-serif";
+    ctx.fillText("Today's periods", pipCanvas.width / 2, 34);
+
+    const todayEntries = getTodayEntries();
+    ctx.font = "13px system-ui, sans-serif";
+    ctx.textAlign = "left";
+    let y = 62;
+    if (todayEntries.length === 0) {
+      ctx.fillText("No periods scheduled today", 24, y);
+    } else {
+      todayEntries.slice(0, 5).forEach((entry) => {
+        ctx.fillText(`${entry.start} – ${entry.end} • ${entry.name}`, 24, y);
+        y += 18;
+      });
+      if (todayEntries.length > 5) {
+        ctx.fillText("…", 24, y);
+      }
+    }
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#22d3ee";
+    ctx.fillRect(24, 124, pipCanvas.width - 48, 24);
+    ctx.fillStyle = "#0b1226";
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText("Back to countdown", pipCanvas.width / 2, 140);
+    return;
+  }
 
   if (current) {
     const endDate = timeToDateToday(current.entry.end);
@@ -650,17 +682,30 @@ function drawPiPTimer(){
     ctx.font = "14px system-ui, sans-serif";
     ctx.fillText("Enjoy your free time!", pipCanvas.width / 2, 105);
   }
+
+  ctx.fillStyle = "#22d3ee";
+  ctx.fillRect(24, 124, pipCanvas.width - 48, 24);
+  ctx.fillStyle = "#0b1226";
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.fillText("Show today's periods", pipCanvas.width / 2, 140);
 }
 
+function togglePiPView(){
+  pipMode = pipMode === "countdown" ? "details" : "countdown";
+  drawPiPTimer();
+}
 
-
-
+function handlePipInteraction(event){
+  event.preventDefault();
+  togglePiPView();
+}
 
 function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
 async function enablePiP(){
   if(!document.pictureInPictureEnabled){ showToast("PiP unsupported"); return; }
   if(!pipStreamAttached){ const stream = pipCanvas.captureStream(25); pipVideo.srcObject = stream; pipStreamAttached = true; }
   if(pipDrawingInterval) clearInterval(pipDrawingInterval);
+  pipMode = "countdown";
   drawPiPTimer(); pipDrawingInterval = setInterval(drawPiPTimer, 500);
   try{
     await pipVideo.play().catch(async ()=>{ await wait(100); return pipVideo.play().catch(()=>{}); });
@@ -669,6 +714,8 @@ async function enablePiP(){
 }
 async function disablePiP(){ try{ if(document.pictureInPictureElement) await document.exitPictureInPicture(); }catch(e){} if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval=null; } floatingBtn.innerText="Floating Mode"; showToast("Floating stopped"); }
 floatingBtn.addEventListener("click", async ()=>{ if(document.pictureInPictureElement){ await disablePiP(); return; } await enablePiP(); });
+pipVideo.addEventListener("click", handlePipInteraction);
+pipVideo.addEventListener("touchend", handlePipInteraction);
 document.addEventListener('leavepictureinpicture', ()=>{ if(pipDrawingInterval){ clearInterval(pipDrawingInterval); pipDrawingInterval=null; } floatingBtn.innerText="Floating Mode"; });
 
 /* Initialization */
