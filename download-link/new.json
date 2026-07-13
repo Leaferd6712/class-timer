@@ -3,12 +3,12 @@
     "A": [
       [
         {
-          "name": "Science (ST1)",
+          "name": "Music - Instrumental (CY2)",
           "start": "08:20",
           "end": "09:10"
         },
         {
-          "name": "Geography (BB11)",
+          "name": "Science (ST13)",
           "start": "09:15",
           "end": "10:05"
         },
@@ -18,8 +18,13 @@
           "end": "10:50"
         },
         {
-          "name": "Art (CY13)",
+          "name": "Coding (S24)",
           "start": "10:55",
+          "end": "11:45"
+        },
+        {
+          "name": "English (CE1)",
+          "start": "11:50",
           "end": "12:40"
         },
         {
@@ -28,19 +33,19 @@
           "end": "14:20"
         },
         {
-          "name": "English (M13)",
+          "name": "History (BB11)",
           "start": "14:25",
           "end": "15:15"
         }
       ],
       [
         {
-          "name": "Math (CE11)",
+          "name": "Enrichment Mathematics",
           "start": "08:20",
           "end": "09:10"
         },
         {
-          "name": "Geography (BB11)",
+          "name": "Music - Singing (CY1)",
           "start": "09:15",
           "end": "10:05"
         },
@@ -55,108 +60,103 @@
           "end": "11:45"
         },
         {
-          "name": "Religion (CE13)",
+          "name": "History (BB11)",
           "start": "11:50",
           "end": "12:40"
         },
         {
-          "name": "English (M13)",
-          "start": "13:30",
-          "end": "15:15"
-        }
-      ],
-      [
-        {
-          "name": "Art (CY13)",
-          "start": "08:20",
-          "end": "09:10"
-        },
-        {
-          "name": "Math (S24)",
-          "start": "09:15",
-          "end": "10:05"
-        },
-        {
-          "name": "PE (G1)",
-          "start": "10:25",
-          "end": "12:10"
-        },
-        {
-          "name": "Science (ST3)",
-          "start": "13:30",
-          "end": "15:15"
-        }
-      ],
-      [
-        {
-          "name": "Science (ST1)",
-          "start": "08:20",
-          "end": "09:10"
-        },
-        {
-          "name": "French (S11)",
-          "start": "09:15",
-          "end": "10:05"
-        },
-        {
-          "name": "Form",
-          "start": "10:25",
-          "end": "10:35"
-        },
-        {
-          "name": "Sport Meetings",
-          "start": "10:40",
-          "end": "10:50"
-        },
-        {
-          "name": "Math (CE11)",
-          "start": "10:55",
-          "end": "12:40"
-        },
-        {
-          "name": "English (M13)",
+          "name": "Coding (S14)",
           "start": "13:30",
           "end": "14:20"
         },
         {
-          "name": "Geography (BB11)",
+          "name": "English (The Huddle)",
           "start": "14:25",
           "end": "15:15"
         }
       ],
       [
         {
-          "name": "Geography (BB11)",
+          "name": "Personal Development",
+          "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "Enrichment Mathematics",
+          "start": "09:15",
+          "end": "10:05"
+        },
+        {
+          "name": "Personal Health and Physical Development",
+          "start": "10:25",
+          "end": "12:10"
+        },
+        {
+          "name": "Science (ST2)",
+          "start": "13:30",
+          "end": "15:15"
+        }
+      ],
+      [
+        {
+          "name": "Science (ST2)",
           "start": "08:20",
           "end": "09:10"
         },
         {
           "name": "French (S11)",
-          "start": "08:20",
-          "end": "09:10"
+          "start": "09:15",
+          "end": "10:05"
         },
         {
-          "name": "Form",
+          "name": "Form Wellbeing (T21)",
           "start": "10:25",
           "end": "10:50"
         },
         {
-          "name": "Art (CY13)",
+          "name": "Enrichment Mathematics",
           "start": "10:55",
-          "end": "11:45"
-        },
-        {
-          "name": "Religion (CE13)",
-          "start": "11:50",
           "end": "12:40"
         },
         {
-          "name": "English (BB2)",
+          "name": "History (BB11)",
           "start": "13:30",
           "end": "14:20"
         },
         {
-          "name": "Math (CE11)",
+          "name": "English (The Huddle)",
+          "start": "14:25",
+          "end": "15:15"
+        }
+      ],
+      [
+        {
+          "name": "History (BB11)",
+          "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "French (S12)",
+          "start": "09:15",
+          "end": "10:05"
+        },
+        {
+          "name": "Wellbeing Form Period",
+          "start": "10:25",
+          "end": "10:50"
+        },
+        {
+          "name": "Drama (PF1)",
+          "start": "10:55",
+          "end": "12:40"
+        },
+        {
+          "name": "English (The Huddle)",
+          "start": "13:30",
+          "end": "14:20"
+        },
+        {
+          "name": "Enrichment Mathematics",
           "start": "14:25",
           "end": "15:15"
         }
@@ -167,12 +167,12 @@
     "B": [
       [
         {
-          "name": "PE (G1)",
+          "name": "Science (ST2)",
           "start": "08:20",
           "end": "09:10"
         },
         {
-          "name": "Science (ST1)",
+          "name": "Science (ST2)",
           "start": "09:15",
           "end": "10:05"
         },
@@ -182,7 +182,7 @@
           "end": "10:50"
         },
         {
-          "name": "Math (CE11)",
+          "name": "Enrichment Mathematics",
           "start": "10:55",
           "end": "11:45"
         },
@@ -192,24 +192,24 @@
           "end": "12:40"
         },
         {
-          "name": "Religion (CE13)",
+          "name": "English (The Huddle)",
           "start": "13:30",
           "end": "14:20"
         },
         {
-          "name": "Geography (BB11)",
+          "name": "History (BB11)",
           "start": "14:25",
           "end": "15:15"
         }
       ],
       [
         {
-          "name": "Geography (BB12)",
+          "name": "Music - Instrumental (CY2)",
           "start": "08:20",
           "end": "09:10"
         },
         {
-          "name": "English (BB13)",
+          "name": "History (BB11)",
           "start": "09:15",
           "end": "10:05"
         },
@@ -229,20 +229,25 @@
           "end": "12:40"
         },
         {
-          "name": "Math (CE11)",
+          "name": "Enrichment Mathematics",
           "start": "13:30",
           "end": "14:20"
         },
         {
-          "name": "Art (CY13)",
+          "name": "Personal Health and Physical Development",
           "start": "14:25",
           "end": "15:15"
         }
       ],
       [
         {
-          "name": "Science (ST3)",
+          "name": "Science (ST12)",
           "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "History (BB11)",
+          "start": "09:15",
           "end": "10:05"
         },
         {
@@ -251,45 +256,40 @@
           "end": "11:15"
         },
         {
-          "name": "PE (G1)",
+          "name": "Personal Health and Physical Development",
           "start": "11:20",
-          "end": "12:10"
+          "end": "12:40"
         },
         {
-          "name": "English (BB2)",
+          "name": "English (The Huddle)",
           "start": "13:30",
           "end": "14:20"
         },
         {
-          "name": "Math (CE12)",
+          "name": "Enrichment Mathematics",
           "start": "14:25",
           "end": "15:15"
         }
       ],
       [
         {
-          "name": "Art (CY13)",
+          "name": "Music - Instrumental (CY2)",
           "start": "08:20",
+          "end": "09:10"
+        },
+        {
+          "name": "Science (ST13)",
+          "start": "09:15",
           "end": "10:05"
         },
         {
-          "name": "Form",
+          "name": "Form Wellbeing (T21)",
           "start": "10:25",
-          "end": "10:35"
-        },
-        {
-          "name": "Sport Meetings",
-          "start": "10:40",
           "end": "10:50"
         },
         {
-          "name": "Geography (BB11)",
+          "name": "English (S11)",
           "start": "10:55",
-          "end": "11:45"
-        },
-        {
-          "name": "English (M13)",
-          "start": "11:50",
           "end": "12:40"
         },
         {
@@ -298,39 +298,39 @@
           "end": "14:20"
         },
         {
-          "name": "Science (ST3)",
+          "name": "Drama (PF1)",
           "start": "14:25",
           "end": "15:15"
         }
       ],
       [
         {
-          "name": "English (BB11)",
+          "name": "History (BB11)",
           "start": "08:20",
           "end": "09:10"
         },
         {
-          "name": "Health (BB11)",
+          "name": "English (CE1)",
           "start": "09:15",
           "end": "10:05"
         },
         {
-          "name": "Form",
+          "name": "Wellbeing Form Period",
           "start": "10:25",
           "end": "10:50"
         },
         {
-          "name": "Geography (BB1)",
+          "name": "Coding (S14)",
           "start": "10:55",
           "end": "11:45"
         },
         {
-          "name": "Math (S24)",
+          "name": "Enrichment Mathematics",
           "start": "11:50",
           "end": "12:40"
         },
         {
-          "name": "Art (CY13)",
+          "name": "Drama (PF1)",
           "start": "13:30",
           "end": "14:20"
         },
