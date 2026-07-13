@@ -704,7 +704,7 @@ function handlePipInteraction(event){
 function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
 async function enablePiP(){
   if(!document.pictureInPictureEnabled){ showToast("PiP unsupported"); return; }
-  if(!pipStreamAttached){ const stream = pipCanvas.captureStream(25); pipVideo.srcObject = stream; pipStreamAttached = true; }
+  if(!pipStreamAttached){ const stream = pipCanvas.captureStream(2); pipVideo.srcObject = stream; pipStreamAttached = true; }
   if(pipDrawingInterval) clearInterval(pipDrawingInterval);
   pipMode = "countdown";
   drawPiPTimer(); pipDrawingInterval = setInterval(drawPiPTimer, 500);
