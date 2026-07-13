@@ -205,6 +205,7 @@
 */
 const STORAGE_KEYS = ["period_timer_schedule_v2", "period_timer_schedule_v1", "period_timer_schedule"];
 const ACTIVE_WEEK_KEY = "period_timer_active_week"; // "A" or "B"
+const IMPORTED_JSON_KEY = "period_timer_imported_json";
 
 function defaultSchedule(){ return { weeks: { A: [[],[],[],[],[],[],[]], B: [[],[],[],[],[],[],[]] } }; }
 
@@ -232,6 +233,18 @@ function validateSchedule(obj){
 
 function loadSchedule(){
   try{
+    const importedRaw = localStorage.getItem(IMPORTED_JSON_KEY);
+    if(importedRaw){
+      try{
+        const parsed = JSON.parse(importedRaw);
+        if(isNewTwoWeek(parsed) && validateSchedule(parsed)) return parsed;
+        if(isOldSingleWeek(parsed) && validateSchedule(parsed)){
+          const clone = JSON.parse(JSON.stringify(parsed.days));
+          return { weeks: { A: clone, B: clone.map(day=>day.map(e=>({...e}))) } };
+        }
+      } catch(e){ /* fall through to other saved schedules */ }
+    }
+
     for(const key of STORAGE_KEYS){
       const raw = localStorage.getItem(key);
       if(!raw) continue;
@@ -254,6 +267,10 @@ function loadSchedule(){
 
 function saveSchedule(s){
   try{ localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(s)); } catch(e){ showToast("Unable to save schedule"); }
+}
+
+function saveImportedJson(raw){
+  try{ localStorage.setItem(IMPORTED_JSON_KEY, raw); } catch(e){ showToast("Unable to remember imported schedule"); }
 }
 
 /* Active week helpers */
@@ -490,13 +507,15 @@ importFile.addEventListener("change", (ev)=>{
   const r = new FileReader();
   r.onload = ()=>{
     try{
-      const p = JSON.parse(r.result);
+      const rawText = r.result;
+      const p = JSON.parse(rawText);
       if(isNewTwoWeek(p) && validateSchedule(p)){
         schedule = p;
       } else if(isOldSingleWeek(p) && validateSchedule(p)){
         const clone = JSON.parse(JSON.stringify(p.days));
         schedule = { weeks: { A: clone, B: clone.map(day=>day.map(e=>({ ...e }))) } };
       } else throw new Error("Invalid format");
+      saveImportedJson(rawText);
       saveSchedule(schedule);
       renderScheduleList(); renderScheduleSummary();
       showToast("Imported schedule.");
